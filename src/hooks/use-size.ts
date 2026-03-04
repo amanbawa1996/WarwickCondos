@@ -34,7 +34,7 @@ export const useSize = (ref: React.RefObject<HTMLElement>, threshold: number = 5
 
   useResizeObserver(ref, (entry) => {
       const { width, height } = entry.contentRect
-      if (size.width !== width || size.height !== height) {
+      if (size && (size.width !== width || size.height !== height)) {
         updateSize({ width, height })
       }
   })
