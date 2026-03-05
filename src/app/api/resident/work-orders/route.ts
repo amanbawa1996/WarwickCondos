@@ -7,7 +7,6 @@ type Body = {
   title: string;
   description: string;
   priority?: string | null;   // low|medium|high|urgent OR Low/Medium/etc (we normalize)
-  category?: string | null;
 
   // Wix-style snapshot fields (editable)
   unitNumber?: string | null;
@@ -112,7 +111,7 @@ export async function POST(req: Request) {
     console.log("[resident/work-orders] unitNumber =", (body as any).unitNumber, "unit_number =", (body as any).unit_number);
     const title = (body.title || "").trim();
     const description = (body.description || "").trim();
-    const category = body.category ? String(body.category).trim() : null;
+    
     const priority = canonPriority(body.priority);
 
     // Wix-style fields (editable)
@@ -140,7 +139,7 @@ export async function POST(req: Request) {
 
         title,
         description,
-        category,
+        
         priority,
 
         status: "pending",
