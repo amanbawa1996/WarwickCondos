@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { checkAllowlist } from "@/backend/allowlist";
-import { generateToken, hashToken, storeToken } from "@/backend/auth";
-import { sendEmail } from "@/backend/postmark";
+import { generateOtpCode, hashOtp, storeOtp} from "@/backend/auth";
+import { sendOtpEmail  } from "@/backend/postmark";
 
 export async function POST(req: Request) {
   try {
@@ -23,31 +23,35 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    // Create token (raw token is only sent via email)
-    const rawToken = generateToken(32);
-    const tokenHash = hashToken(rawToken);
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+    const otp = generateOtpCode();
+    const otpHash = hashOtp(allow.email, otp);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
 
-    // Store token in DB
-    await storeToken(allow.email, allow.role, tokenHash, expiresAt);
+    await storeOtp(allow.email, allow.role, otpHash, expiresAt);
+
+    // Create token (raw token is only sent via email)
+    // const rawToken = generateToken(32);
+    // const tokenHash = hashToken(rawToken);
+    // const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    // // Store token in DB
+    // await storeToken(allow.email, allow.role, tokenHash, expiresAt);
 
     // Send email with verify link
     try {
-        console.log("Test 1")
-        await sendEmail({ to: allow.email, token: rawToken });
+        await sendOtpEmail ({
+        to: allow.email,
+        otp,
+      });
     } catch (e) {
     // In development, Postmark may block sending (pending approval).
     // We still want to test end-to-end, so log the magic link.
         if (process.env.NODE_ENV !== "production") {
-            const verifyUrl = new URL("/api/auth/verify", process.env.APP_BASE_URL);
-            verifyUrl.searchParams.set("token", rawToken);
-            console.log("[DEV MAGIC LINK]", verifyUrl.toString());
-            console.log("[DEV NOTE] Postmark send failed, but token was stored. Error:", e);
-        } else {
-            console.log(e)
-            // In prod, fail silently (still no enumeration), but don't leak.
-            // You may optionally log server-side.
-        }
+        console.log("[DEV OTP]", { email: allow.email, otp });
+        console.log("[DEV NOTE] Postmark send failed. Error:", e);
+      } else {
+        console.log("[AUTH START EMAIL ERROR]", e);
+      }
     }
 
 

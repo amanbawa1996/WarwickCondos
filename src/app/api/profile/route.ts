@@ -40,3 +40,17 @@ export async function GET() {
     { headers: { "Cache-Control": "no-store" } }
   );
 }
+
+// export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
+//   const { id } = await ctx.params;
+
+//   const raw = (await cookies()).get("warwick_session")?.value;
+
+//   if (!raw) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+
+//   const session = await getSession(raw);
+
+//   if (!session?) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+//   const body = await req.json()
+//   const first_name = String(body.fi)
+// }

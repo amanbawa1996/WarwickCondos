@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from 'react';
+import { useRouter } from "next/navigation";
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,9 +15,10 @@ export default function UnifiedLoginPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
-  const [emailSent, setEmailSent] = useState(false);
-  
-  const [loginEmail, setLoginEmail] = useState('');
+  const router = useRouter();
+  const [loginStep, setLoginStep] = useState<"email" | "otp">("email");
+  const [loginEmail, setLoginEmail] = useState("");
+  const [otpCode, setOtpCode] = useState("");
 
   const [registerData, setRegisterData] = useState({
     firstName: '',
@@ -26,7 +28,40 @@ export default function UnifiedLoginPage() {
     unitNumber: '',
   });
 
-  const handleRequestMagicLink = async (e: React.FormEvent) => {
+  // const handleRequestMagicLink = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   setIsLoading(true);
+
+  //   try {
+  //     const email = loginEmail.trim().toLowerCase();
+
+  //     await fetch("/api/auth/start", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({ email }),
+  //     });
+
+  //     toast({
+  //       title: 'Magic Link Sent',
+  //       description: 'If your email is registered, you will receive a magic link shortly.',
+  //     });
+      
+  //     setEmailSent(true);
+  //     setLoginEmail('');
+  //   } catch (error) {
+  //     console.error('❌ Error requesting magic link:', error);
+  //     toast({
+  //       title: 'Error',
+  //       description: 'An error occurred. Please try again.',
+  //       variant: 'destructive',
+  //     });
+  //     setEmailSent(true)
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
+
+  const handleRequestCode = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
@@ -40,20 +75,62 @@ export default function UnifiedLoginPage() {
       });
 
       toast({
-        title: 'Magic Link Sent',
-        description: 'If your email is registered, you will receive a magic link shortly.',
+        title: "Verification Code Sent",
+        description: "If your email is registered, you will receive a 6-digit code shortly.",
       });
-      
-      setEmailSent(true);
-      setLoginEmail('');
+
+      setLoginEmail(email);
+      setLoginStep("otp");
     } catch (error) {
-      console.error('❌ Error requesting magic link:', error);
+      console.error("❌ Error requesting OTP:", error);
       toast({
-        title: 'Error',
-        description: 'An error occurred. Please try again.',
-        variant: 'destructive',
+        title: "Error",
+        description: "An error occurred. Please try again.",
+        variant: "destructive",
       });
-      setEmailSent(true)
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: loginEmail.trim().toLowerCase(),
+          otp: otpCode.trim(),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.ok) {
+        toast({
+          title: "Invalid Code",
+          description: "The code is invalid or expired. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Login Successful",
+        description: "Redirecting to your portal...",
+      });
+
+      window.location.href = data.redirectTo || "/";
+    } catch (error) {
+      console.error("❌ Error verifying OTP:", error);
+      toast({
+        title: "Error",
+        description: "An error occurred. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -125,7 +202,9 @@ export default function UnifiedLoginPage() {
           </h2>
           <p className="font-paragraph text-center text-secondary-foreground/70 mb-8">
             {activeTab === 'login' 
-              ? 'Enter your email to receive a magic login link' 
+              ? loginStep === "email"
+                ? 'Enter your email to receive a verification code'
+                : 'Enter the 6-digit code sent to your email' 
               : 'Register as a resident'}
           </p>
 
@@ -134,7 +213,8 @@ export default function UnifiedLoginPage() {
             <button
               onClick={() => {
                 setActiveTab('login');
-                setEmailSent(false);
+                setLoginStep("email");
+                setOtpCode("");
               }}
               className={`flex-1 py-3 font-paragraph text-base transition-colors ${
                 activeTab === 'login'
@@ -157,70 +237,98 @@ export default function UnifiedLoginPage() {
           </div>
 
           {/* Login Form */}
-          {activeTab === 'login' && !emailSent && (
-            <form onSubmit={handleRequestMagicLink} className="space-y-6">
-              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex gap-3">
-                <AlertCircle size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
-                <div className="font-paragraph text-sm text-blue-800">
-                  <p className="font-semibold mb-1">Magic Link Login</p>
-                  <p>We'll send you a secure link to login instantly.</p>
+          {activeTab === 'login' && loginStep === 'email' && (
+  <form onSubmit={handleRequestCode} className="space-y-6">
+    <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex gap-3">
+      <AlertCircle size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
+      <div className="font-paragraph text-sm text-blue-800">
+        <p className="font-semibold mb-1">Email Code Login</p>
+        <p>We'll send you a secure 6-digit verification code.</p>
+      </div>
+    </div>
+
+    <div className="space-y-2">
+      <Label htmlFor="login-email" className="font-paragraph text-base text-secondary-foreground">
+        Email Address
+      </Label>
+      <Input
+        id="login-email"
+        type="email"
+        required
+        value={loginEmail}
+        onChange={(e) => setLoginEmail(e.target.value)}
+        className="bg-secondary border-secondary-foreground/20 text-secondary-foreground"
+        placeholder="your@email.com"
+      />
+    </div>
+
+    <Button
+      type="submit"
+      disabled={isLoading}
+      className="w-full bg-secondary-foreground text-secondary hover:bg-secondary-foreground/90 font-paragraph text-lg py-6"
+    >
+      {isLoading ? 'Sending...' : 'Send Verification Code'}
+    </Button>
+
+    <p className="text-center font-paragraph text-sm text-secondary-foreground/70">
+      Don't have an account?{" "}
+      <button
+        type="button"
+        onClick={() => setActiveTab("register")}
+        className="text-secondary-foreground hover:underline font-semibold"
+      >
+        Register here
+      </button>
+    </p>
+  </form>
+)}
+
+          {activeTab === 'login' && loginStep === 'otp' && (
+            <form onSubmit={handleVerifyOtp} className="space-y-6">
+              <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex gap-3">
+                <CheckCircle2 size={20} className="text-green-600 flex-shrink-0 mt-0.5" />
+                <div className="font-paragraph text-sm text-green-800">
+                  <p className="font-semibold mb-1">Check Your Email</p>
+                  <p>Enter the 6-digit code sent to {loginEmail}.</p>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="login-email" className="font-paragraph text-base text-secondary-foreground">
-                  Email Address
+                <Label htmlFor="otp-code" className="font-paragraph text-base text-secondary-foreground">
+                  Verification Code
                 </Label>
                 <Input
-                  id="login-email"
-                  type="email"
+                  id="otp-code"
+                  inputMode="numeric"
+                  maxLength={6}
                   required
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  className="bg-secondary border-secondary-foreground/20 text-secondary-foreground"
-                  placeholder="your@email.com"
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  className="bg-secondary border-secondary-foreground/20 text-secondary-foreground tracking-[0.35em] text-center text-xl"
+                  placeholder="123456"
                 />
               </div>
 
               <Button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || otpCode.length !== 6}
                 className="w-full bg-secondary-foreground text-secondary hover:bg-secondary-foreground/90 font-paragraph text-lg py-6"
               >
-                {isLoading ? 'Sending...' : 'Send Magic Link'}
+                {isLoading ? 'Verifying...' : 'Verify Code'}
               </Button>
-
-              <p className="text-center font-paragraph text-sm text-secondary-foreground/70">
-                Don't have an account?{' '}
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('register')}
-                  className="text-secondary-foreground hover:underline font-semibold"
-                >
-                  Register here
-                </button>
-              </p>
-            </form>
-          )}
-
-          {/* Email Sent Confirmation */}
-          {activeTab === 'login' && emailSent && (
-            <div className="space-y-6">
-              <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex gap-3">
-                <CheckCircle2 size={20} className="text-green-600 flex-shrink-0 mt-0.5" />
-                <div className="font-paragraph text-sm text-green-800">
-                  <p className="font-semibold mb-1">Check Your Email</p>
-                  <p>We've sent a magic link to your email. Click the link to login.</p>
-                </div>
-              </div>
 
               <Button
-                onClick={() => setEmailSent(false)}
-                className="w-full bg-secondary-foreground text-secondary hover:bg-secondary-foreground/90 font-paragraph text-lg py-6"
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setLoginStep("email");
+                  setOtpCode("");
+                }}
+                className="w-full"
               >
-                Try Another Email
+                Use Another Email
               </Button>
-            </div>
+            </form>
           )}
 
           {/* Register Form */}

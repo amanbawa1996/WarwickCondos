@@ -213,6 +213,79 @@ export async function destroySession(rawSession: string): Promise<void> {
     .eq("session_hash", sessionHash);
 }
 
+export function generateOtpCode(): string {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+export function hashOtp(email: string, otp: string): string {
+  const normalized = String(email || "").trim().toLowerCase();
+  return crypto
+    .createHash("sha256")
+    .update(`${normalized}:${otp}`)
+    .digest("hex");
+}
+
+export async function storeOtp(
+  email: string,
+  role: AppRole,
+  otpHash: string,
+  expiresAt: Date
+): Promise<void> {
+  const supabase = supabaseServer();
+
+  await supabase.from("email_otps").insert({
+    email: email.trim().toLowerCase(),
+    role,
+    otp_hash: otpHash,
+    expires_at: expiresAt.toISOString(),
+  });
+}
+
+export async function verifyOtpCode(
+  email: string,
+  otp: string
+): Promise<{ email: string; role: AppRole } | null> {
+  const supabase = supabaseServer();
+  const normalized = String(email || "").trim().toLowerCase();
+  const otpHash = hashOtp(normalized, otp);
+
+  const { data, error } = await supabase
+    .from("email_otps")
+    .select("id,email,role,otp_hash,expires_at,consumed_at,created_at")
+    .eq("email", normalized)
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  if (error || !data?.length) return null;
+
+  const now = Date.now();
+
+  const match = data.find((row) => {
+    if (row.consumed_at) return false;
+    if (new Date(row.expires_at).getTime() < now) return false;
+    return row.otp_hash === otpHash;
+  });
+
+  if (!match) return null;
+
+  // atomic consume attempt
+  const { data: consumedRows, error: consumeError } = await supabase
+    .from("email_otps")
+    .update({ consumed_at: new Date().toISOString() })
+    .eq("id", match.id)
+    .is("consumed_at", null)
+    .select("id");
+
+  if (consumeError || !consumedRows?.length) {
+    return null;
+  }
+
+  return {
+    email: match.email,
+    role: match.role,
+  };
+}
+
 /**
  * Optional maintenance: clear expired tokens/sessions (safe to call occasionally)
  */
@@ -221,5 +294,6 @@ export async function cleanupExpired(): Promise<void> {
   const nowIso = new Date().toISOString();
 
   await supabase.from("magic_links").delete().lt("expires_at", nowIso);
+  await supabase.from("email_otps").delete().lt("expires_at", nowIso);
   await supabase.from("sessions").delete().lt("expires_at", nowIso);
 }
