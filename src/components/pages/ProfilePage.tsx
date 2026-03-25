@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Mail, Phone, Calendar, Upload, Check } from 'lucide-react';
-// import Header from '@/components/layout/Header';
+
 import ResidentHeader from '@/components/layout/ResidentHeader';
 import AdminHeader from '@/components/layout/AdminHeader';
 import Footer from '@/components/layout/Footer';
@@ -29,8 +29,10 @@ function ProfilePageContent() {
     firstName: '',
     lastName: '',
     phone: '',
+    email:'',
   });
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
 
   // Load user data from database based on logged-in email and role
   useEffect(() => {
@@ -52,6 +54,7 @@ function ProfilePageContent() {
 
         setUserRole(role);
         setUserData(profile);
+        setProfileImage(profile.profile_image_path ?? null);
 
         // Normalize fields for your existing UI state
         // residents table uses: first_name, last_name, phone_number
@@ -66,10 +69,12 @@ function ProfilePageContent() {
           "";
         const phone = profile.phone_number ?? profile.phoneNumber ?? "";
 
+        const email_ad = profile.email ??"";
         setProfileData({
           firstName: first || "",
           lastName: last || "",
           phone: phone || "",
+          email: email_ad || "",
         });
 
         console.log("✅ ProfilePage: loaded profile", { role });
@@ -87,55 +92,121 @@ function ProfilePageContent() {
     const file = e.target.files?.[0];
     if (file) {
       // Validate file type
-      if (!file.type.startsWith('image/')) {
+      const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+
+      if (!allowedTypes.includes(file.type)) {
         toast({
           title: 'Invalid File',
-          description: 'Please upload an image file.',
+          description: 'Please upload a JPG, PNG, or WEBP image.',
           variant: 'destructive',
         });
         return;
       }
 
       // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
+      if (file.size > 3 * 1024 * 1024) {
         toast({
           title: 'File Too Large',
-          description: 'Please upload an image smaller than 5MB.',
+          description: 'Please upload an image smaller than 3MB.',
           variant: 'destructive',
         });
         return;
       }
 
+      setProfileImageFile(file);
+      
       // Create preview
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setProfileImage(event.target?.result as string);
-        toast({
-          title: 'Image Selected',
-          description: 'Your profile picture has been selected. Click Save to confirm.',
-        });
-      };
-      reader.readAsDataURL(file);
+      const previewUrl = URL.createObjectURL(file);
+      setProfileImage(previewUrl);
+
+      toast({
+        title: "Image Selected",
+        description: "Your profile picture has been selected. Click Save to confirm.",
+      });
     }
   };
 
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      // In a real implementation, this would update the resident data
-      // For now, we'll just show a success message
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      toast({
-        title: 'Profile Updated',
-        description: 'Your profile information has been saved successfully.',
+
+      // 1. Save text fields
+      const profileRes = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: profileData.firstName,
+          lastName: profileData.lastName,
+          phone: profileData.phone,
+          email: profileData.email,
+        }),
       });
-      setIsEditing(false);
-    } catch (error) {
+
+      const profileJson = await profileRes.json();
+
+      if (!profileRes.ok || !profileJson?.ok) {
+        throw new Error(profileJson?.error || "Failed to update profile");
+      }
+
+      let latestProfile = profileJson.profile;
+
+      // 2. Upload image if selected
+      if (profileImageFile) {
+        const formData = new FormData();
+        formData.append("file", profileImageFile);
+
+        const avatarRes = await fetch("/api/profile/avatar", {
+          method: "POST",
+          body: formData,
+        });
+
+        const avatarJson = await avatarRes.json();
+
+        if (!avatarRes.ok || !avatarJson?.ok) {
+          throw new Error(avatarJson?.error || "Failed to upload profile image");
+        }
+
+        latestProfile = avatarJson.profile;
+        setProfileImage(avatarJson.profileImageUrl ?? null);
+        setProfileImageFile(null);
+      }
+
+      setUserData(latestProfile);
+
+      const first =
+        latestProfile.first_name ??
+        (latestProfile.full_name ? String(latestProfile.full_name).split(" ")[0] : "") ??
+        "";
+
+      const last =
+        latestProfile.last_name ??
+        (latestProfile.full_name
+          ? String(latestProfile.full_name).split(" ").slice(1).join(" ")
+          : "") ??
+        "";
+
+      const phone = latestProfile.phone_number ?? latestProfile.phoneNumber ?? "";
+
+      const email_ad = latestProfile.email ?? ""
+
+      setProfileData({
+        firstName: first || "",
+        lastName: last || "",
+        phone: phone || "",
+        email: email_ad || "",
+      });
+
       toast({
-        title: 'Error',
-        description: 'Failed to update profile. Please try again.',
-        variant: 'destructive',
+        title: "Profile Updated",
+        description: "Your profile information has been saved successfully.",
+      });
+
+      setIsEditing(false);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to update profile. Please try again.",
+        variant: "destructive",
       });
     } finally {
       setIsSaving(false);
@@ -149,6 +220,7 @@ function ProfilePageContent() {
           firstName: userData.first_name ?? "",
           lastName: userData.last_name ?? "",
           phone: userData.phone_number ?? "",
+          email: userData.email?? "",
         });
       } else {
         const full = String(userData.full_name ?? "").trim();
@@ -157,9 +229,14 @@ function ProfilePageContent() {
           firstName: parts[0] ?? "",
           lastName: parts.slice(1).join(" ") ?? "",
           phone: userData.phone_number ?? "",
+          email: userData.email?? "",
         });
       }
+
+      setProfileImage(userData.profile_image_path ?? null);
     }
+
+    setProfileImageFile(null);
     setIsEditing(false);
 };
 
@@ -312,9 +389,18 @@ function ProfilePageContent() {
                   <Mail size={16} className="text-secondary-foreground/60" />
                   <p className="font-paragraph text-sm text-secondary-foreground/60">Email</p>
                 </div>
-                <p className="font-paragraph text-lg text-secondary-foreground">
+                {isEditing ? (
+                  <Input
+                    type="text"
+                    value={profileData.email}
+                    onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+                    className="bg-secondary-foreground/5 border-secondary-foreground/20 text-secondary-foreground font-paragraph text-lg py-3"
+                    placeholder="Enter your email"
+                  />
+                ) : 
+                (<p className="font-paragraph text-lg text-secondary-foreground">
                   {userData?.email || 'Not provided'}
-                </p>
+                </p>)}
                 {/* {member?.loginEmailVerified && (
                   <p className="font-paragraph text-xs text-secondary-foreground/60 mt-1">✓ Verified</p>
                 )} */}

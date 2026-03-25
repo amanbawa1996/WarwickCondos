@@ -13,7 +13,7 @@ import WorkOrderDetailsPage from '@/components/pages/WorkOrderDetailsPage';
 import ResidentHomePage from "@/components/pages/ResidentHomePage";
 import PaymentPage from '@/components/pages/PaymentPage';
 import ProfilePage from '@/components/pages/ProfilePage';
-import PortalChoicePage from '@/components/pages/PortalChoicePage';
+
 import UnifiedLoginPage from '@/components/pages/UnifiedLoginPage';
 import { useMember } from "@/integrations";
 
@@ -94,10 +94,7 @@ export default function AppRouter() {
           path: "login",
           element: <UnifiedLoginPage />,
         },
-        {
-          path: "portals",
-          element: <PortalChoicePage />,
-        },
+        
         {element: <RequireAuth />, 
           children: [
             {

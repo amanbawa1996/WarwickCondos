@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Edit2, Trash2, X, Check, Search } from 'lucide-react';
-import Header from '@/components/layout/Header';
+
 import AdminHeader from '@/components/layout/AdminHeader';
 import Footer from '@/components/layout/Footer';
 

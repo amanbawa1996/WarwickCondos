@@ -61,15 +61,15 @@ export default function AdminHeader() {
             <div className="flex items-center gap-4 border-l border-primary-foreground/20 pl-8">
               <NotificationBell />
               <div className="flex items-center gap-2">
+                  <Link 
+                  to="/profile" 
+                  className="font-paragraph text-base text-primary-foreground hover:opacity-70 transition-opacity"
+                >
+                  {'Profile'}
+                </Link>
                 <span className="text-xs bg-primary-foreground/20 px-3 py-1 rounded-full text-primary-foreground">
                   Admin
                 </span>
-                <Link 
-                  to="/profile"
-                  className="font-paragraph text-base text-primary-foreground hover:opacity-70 transition-opacity"
-                >
-                  {getDisplayName()}
-                </Link>
               </div>
               <Button
                 onClick={handleLogout}

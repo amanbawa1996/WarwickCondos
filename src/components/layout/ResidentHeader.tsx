@@ -12,6 +12,9 @@ export default function ResidentHeader() {
   // Use memberData directly from authenticated context
   const displayMember = memberData;
 
+  console.log(displayMember)
+  console.log("Test")
+
   const handleLogout = async () => {
     // Use the logout action from MemberProvider which handles basename-aware redirection
     await actions.logout();
@@ -51,7 +54,7 @@ export default function ResidentHeader() {
                 to="/profile" 
                 className="font-paragraph text-base text-primary-foreground hover:opacity-70 transition-opacity"
               >
-                {displayMember?.contact?.firstName || displayMember?.profile?.nickname || 'Profile'}
+                {'Profile'}
               </Link>
               <span className="text-xs bg-primary-foreground/20 px-3 py-1 rounded-full text-primary-foreground">
                 Resident
