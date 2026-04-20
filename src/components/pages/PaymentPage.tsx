@@ -64,33 +64,33 @@ export default function PaymentPage() {
     return Number(order.paymentRequestAmount ?? order.actualCost ?? order.estimatedCost ?? 0);
   }
 
-  async function startCheckout() {
-    if (!workOrder) return;
+  // async function startCheckout() {
+  //   if (!workOrder) return;
 
-    try {
-      setIsRedirecting(true);
+  //   try {
+  //     setIsRedirecting(true);
 
-      const res = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ workOrderId: workOrder._id }),
-      });
+  //     const res = await fetch("/api/stripe/checkout", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       credentials: "include",
+  //       body: JSON.stringify({ workOrderId: workOrder._id }),
+  //     });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Checkout failed");
+  //     const data = await res.json();
+  //     if (!res.ok) throw new Error(data?.error || "Checkout failed");
 
-      window.location.href = data.url;
-    } catch (e: any) {
-      console.error("Checkout error:", e);
-      toast({
-        title: "Error",
-        description: e?.message || "Failed to start checkout.",
-        variant: "destructive",
-      });
-      setIsRedirecting(false);
-    }
-  }
+  //     window.location.href = data.url;
+  //   } catch (e: any) {
+  //     console.error("Checkout error:", e);
+  //     toast({
+  //       title: "Error",
+  //       description: e?.message || "Failed to start checkout.",
+  //       variant: "destructive",
+  //     });
+  //     setIsRedirecting(false);
+  //   }
+  // }
 
   async function loadSavedCards() {
     try {
@@ -175,6 +175,49 @@ export default function PaymentPage() {
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Could not save selected card.",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function handleUnselectSavedCard() {
+    if (!workOrder) return;
+
+    try {
+      const res = await fetch(`/api/work-orders/${workOrder._id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          selectedPaymentMethodId: null,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data?.error || "Failed to unselect card");
+      }
+
+      setSelectedCardId(null);
+
+      if (data.item) {
+        setWorkOrder(data.item);
+      } else {
+        await loadWorkOrder(workOrder._id);
+      }
+
+      toast({
+        title: "Card Unselected",
+        description: "No saved card is currently selected for this work order.",
+      });
+    } catch (error) {
+      console.error("Failed to unselect saved card:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Could not unselect card.",
         variant: "destructive",
       });
     }
@@ -285,7 +328,7 @@ export default function PaymentPage() {
             Payment
           </h1>
           <p className="font-paragraph text-lg text-primary-foreground/80 mb-12">
-            You can pay with a saved card or continue to Stripe Checkout.
+            Save or select a card for this work order. Management will only charge the selected card when payment is due.
           </p>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -363,6 +406,17 @@ export default function PaymentPage() {
                       </div>
                     )}
 
+                    {workOrder?.selectedPaymentMethod && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleUnselectSavedCard}
+                        className="w-full font-paragraph"
+                      >
+                        Unselect Card
+                      </Button>
+                    )}
+
                     {/* ADD CARD */}
                     <Button
                       onClick={startAddCard}
@@ -403,14 +457,14 @@ export default function PaymentPage() {
                       Pay with Saved Card
                     </Button> */}
 
-                    {/* EXISTING CHECKOUT (KEEP THIS) */}
+                    {/* EXISTING CHECKOUT (KEEP THIS)
                     <Button
                       onClick={startCheckout}
                       disabled={alreadyPaid || amountDue <= 0 || isRedirecting}
                       className="w-full font-paragraph"
                     >
                       Pay with Stripe Checkout
-                    </Button>
+                    </Button> */}
 
                   </div>
 
@@ -471,9 +525,7 @@ export default function PaymentPage() {
                       ${amountDue.toFixed(2)}
                     </span>
                   </div>
-                  <p className="font-paragraph text-sm text-secondary-foreground/60 mt-3">
-                    Payment is processed securely via Stripe Checkout.
-                  </p>
+                  
                 </div>
               </div>
             </div>

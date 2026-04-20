@@ -30,7 +30,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
     const updates: any = { updated_at: new Date().toISOString() };
 
-    if (body.status) updates.status = toDbStatus(body.status);
+    if ("status" in body) updates.status = toDbStatus(body.status);
     if ("assigned_staff_id" in body) updates.assigned_staff_id = body.assigned_staff_id ?? null;
 
     if ("scheduledDate" in body) {
@@ -43,7 +43,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     if ("paymentRequestAmount" in body) updates.payment_request_amount = body.paymentRequestAmount ?? null;
     if ("paymentRequestedDate" in body) updates.payment_requested_date = body.paymentRequestedDate ?? null;
 
-    if (body.paymentStatus) updates.payment_status = body.paymentStatus;
+    if ("paymentStatus" in body) updates.payment_status = body.paymentStatus ?? null;
 
     const { error } = await sb.from("work_orders").update(updates).eq("id", id);
     if (error) throw error;

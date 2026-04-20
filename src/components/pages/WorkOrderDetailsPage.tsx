@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Calendar, DollarSign, Send } from 'lucide-react';
 import AdminHeader from '@/components/layout/AdminHeader';
+import ResidentHeader from '@/components/layout/ResidentHeader';
 import Footer from '@/components/layout/Footer';
 import { format } from 'date-fns';
 
@@ -23,6 +24,7 @@ export default function WorkOrderDetailsPage() {
   const memberContext = useMember();
   const member = memberContext.member;
   const role = memberContext.userRole ?? null;
+  const isAdmin = role === "admin";
   
   const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
   const [staffMembers, setStaffMembers] = useState<StaffMembers[]>([]);
@@ -112,8 +114,8 @@ export default function WorkOrderDetailsPage() {
         // your rule: actualCost is source of truth
         paymentRequestAmount: editData.actualCost > 0 ? editData.actualCost : null,
 
-        // keep unpaid until Stripe later
-        paymentStatus: "unpaid",
+        // // keep unpaid until Stripe later
+        // paymentStatus: "unpaid",
       };
 
       const res = await fetch(`/api/admin/work-orders/${workOrder._id}`, {
@@ -274,7 +276,7 @@ export default function WorkOrderDetailsPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-primary">
-        <AdminHeader />
+        {isAdmin ? <AdminHeader /> : <ResidentHeader />}
         <div className="max-w-[100rem] mx-auto px-6 lg:px-12 py-16">
           <p className="font-paragraph text-xl text-primary-foreground/80 text-center">Loading work order details...</p>
         </div>
@@ -286,15 +288,15 @@ export default function WorkOrderDetailsPage() {
   if (!workOrder) {
     return (
       <div className="min-h-screen bg-primary">
-        <AdminHeader />
+        {isAdmin ? <AdminHeader /> : <ResidentHeader />}
         <div className="max-w-[100rem] mx-auto px-6 lg:px-12 py-16">
           <p className="font-paragraph text-xl text-primary-foreground/80 text-center">Work order not found.</p>
           <div className="text-center mt-8">
             <Button
-              onClick={() => navigate('/AdminDashboard')}
+              onClick={() => navigate(isAdmin ? '/AdminDashboard' : '/Dashboard')}
               className="bg-secondary-foreground text-secondary hover:bg-secondary-foreground/90 font-paragraph"
             >
-              Back to Admin Dashboard
+              Back to {isAdmin ? 'Admin Dashboard' : 'Dashboard'}
             </Button>
           </div>
         </div>
@@ -305,7 +307,7 @@ export default function WorkOrderDetailsPage() {
 
   return (
     <div className="min-h-screen bg-primary">
-      <AdminHeader />
+      {isAdmin ? <AdminHeader /> : <ResidentHeader />}
 
       <main className="max-w-[100rem] mx-auto px-6 lg:px-12 py-16">
         <Button
@@ -637,19 +639,21 @@ export default function WorkOrderDetailsPage() {
                     </p>
                   )}
 
-                  <div className="mt-4">
-                    <Button
-                      onClick={handleChargeSavedCard}
-                      disabled={
-                        isChargingCard ||
-                        workOrder.paymentStatus === "paid" ||
-                        !workOrder.selectedPaymentMethodId
-                      }
-                      className="bg-primary text-primary-foreground hover:bg-primary/90 font-paragraph"
-                    >
-                      {isChargingCard ? "Charging..." : "Charge Selected Card"}
-                    </Button>
-                  </div>
+                  {isAdmin && (
+                    <div className="mt-4">
+                      <Button
+                        onClick={handleChargeSavedCard}
+                        disabled={
+                          isChargingCard ||
+                          workOrder.paymentStatus === "paid" ||
+                          !workOrder.selectedPaymentMethodId
+                        }
+                        className="bg-primary text-primary-foreground hover:bg-primary/90 font-paragraph"
+                      >
+                        {isChargingCard ? "Charging..." : "Charge Selected Card"}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
