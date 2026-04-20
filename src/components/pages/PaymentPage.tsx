@@ -7,20 +7,11 @@ import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { WorkOrder } from "@/types/workorder";
+import { SavedCard } from "@/types/savedcard"
+import { Elements } from "@stripe/react-stripe-js";
+import AddCardForm from "@/components/payments/AddCardForm";
+import { stripePromise } from "@/lib/stripe-client";
 
-// Minimal shape needed for this page (matches your /api/work-orders/[id] mapper)
-// type WorkOrder = {
-//   _id: string;
-//   title: string;
-//   description: string;
-//   category?: string;
-//   unitNumber: string;
-
-//   paymentStatus?: string;
-//   paymentRequestAmount?: number;
-//   actualCost?: number;
-//   estimatedCost?: number;
-// };
 
 export default function PaymentPage() {
   const navigate = useNavigate();
@@ -30,6 +21,11 @@ export default function PaymentPage() {
   const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
+
+  const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [isAddingCard, setIsAddingCard] = useState(false);
 
   useEffect(() => {
     const orderId = searchParams.get("orderId");
@@ -48,6 +44,7 @@ export default function PaymentPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to load work order");
       setWorkOrder(data.item);
+      setSelectedCardId(data?.item?.selectedPaymentMethodId ?? null);
     } catch (e: any) {
       console.error("Error loading work order:", e);
       toast({
@@ -95,8 +92,114 @@ export default function PaymentPage() {
     }
   }
 
+  async function loadSavedCards() {
+    try {
+      console.log("Test1")
+      const res = await fetch("/api/payments/methods", {
+        credentials: "include",
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        setSavedCards(data.items || []);
+      }
+    } catch (e) {
+      console.error("Failed to load cards", e);
+    }
+  }
+
+  useEffect(() => {
+    loadSavedCards();
+  }, []);
+
+  async function startAddCard() {
+    try {
+      setIsAddingCard(true);
+
+      const res = await fetch("/api/payments/setup-intent", {
+        method: "POST",
+        credentials: "include",
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to initialize card setup");
+
+      setClientSecret(data.clientSecret);
+    } catch (e) {
+      console.error(e);
+      toast({
+        title: "Error",
+        description: "Failed to initialize card setup",
+        variant: "destructive",
+      });
+      setIsAddingCard(false);
+    }
+  }
+
+  async function handleSelectSavedCard(paymentMethodId: string) {
+    if (!workOrder) return;
+
+    try {
+      const res = await fetch(`/api/work-orders/${workOrder._id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          selectedPaymentMethodId: paymentMethodId,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data?.error || "Failed to save selected card");
+      }
+
+      setSelectedCardId(paymentMethodId);
+
+      if (data.item) {
+        setWorkOrder(data.item);
+      } else {
+        await loadWorkOrder(workOrder._id);
+      }
+
+      toast({
+        title: "Saved Card Selected",
+        description: "This card is now selected for the work order.",
+      });
+    } catch (error) {
+      console.error("Failed to select saved card:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Could not save selected card.",
+        variant: "destructive",
+      });
+    }
+  }
+
+
+  async function handleCardSaved() {
+    setClientSecret(null);
+    setIsAddingCard(false);
+    await loadSavedCards();
+
+    if (savedCards.length > 0) {
+      setSelectedCardId(savedCards[0].id);
+    }
+
+    toast({
+      title: "Card Saved",
+      description: "Your payment method was saved successfully.",
+    });
+  }
+
   const amountDue = getAmountDue(workOrder);
   const alreadyPaid = (workOrder?.paymentStatus || "unpaid").toLowerCase() === "paid";
+
+
 
   if (isLoading) {
     return (
@@ -136,6 +239,41 @@ export default function PaymentPage() {
     );
   }
 
+  // async function assignSavedCardToWorkOrder() {
+  //   if (!workOrder || !selectedCardId) return;
+
+  //   try {
+  //     const res = await fetch(`/api/work-orders/${workOrder._id}/payment`, {
+  //       method: "PATCH",
+  //       credentials: "include",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({
+  //         paymentMethodId: selectedCardId,
+  //       }),
+  //     });
+
+  //     const data = await res.json();
+
+  //     if (!res.ok) {
+  //       throw new Error(data?.error || "Failed to assign saved card");
+  //     }
+
+  //     toast({
+  //       title: "Saved Card Selected",
+  //       description: "This card is now linked to the work order.",
+  //     });
+
+  //     await loadWorkOrder(workOrder._id);
+  //   } catch (e: any) {
+  //     console.error("Assign saved card error:", e);
+  //     toast({
+  //       title: "Error",
+  //       description: e?.message || "Failed to link saved card.",
+  //       variant: "destructive",
+  //     });
+  //   }
+  // }
+
 
   return (
     <div className="min-h-screen bg-primary">
@@ -147,7 +285,7 @@ export default function PaymentPage() {
             Payment
           </h1>
           <p className="font-paragraph text-lg text-primary-foreground/80 mb-12">
-            You’ll be redirected to Stripe Checkout to complete payment.
+            You can pay with a saved card or continue to Stripe Checkout.
           </p>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -166,17 +304,115 @@ export default function PaymentPage() {
                 </div>
 
                 <div className="mt-6 space-y-3">
-                  <Button
-                    onClick={startCheckout}
-                    disabled={alreadyPaid || amountDue <= 0 || isRedirecting}
-                    className="w-full font-paragraph"
-                  >
-                    {alreadyPaid
-                      ? "Already Paid"
-                      : isRedirecting
-                      ? "Redirecting..."
-                      : "Pay with Stripe"}
-                  </Button>
+                  <div className="space-y-4">
+
+                    {/* SAVED CARDS */}
+                    {/* SAVED CARDS */}
+                    {savedCards.length > 0 && (
+                      <div className="space-y-3">
+                        <p className="font-paragraph text-sm text-secondary-foreground/70">
+                          Saved Cards
+                        </p>
+
+                        {savedCards.map((card) => {
+                          const isSelected =
+                            selectedCardId === card.id ||
+                            workOrder?.selectedPaymentMethodId === card.id;
+
+                          return (
+                            <div
+                              key={card.id}
+                              className="flex items-center justify-between rounded-md border p-3"
+                            >
+                              <div>
+                                <div className="font-medium">
+                                  {card.brand.toUpperCase()} •••• {card.last4}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  Expires {card.expMonth}/{card.expYear}
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => handleSelectSavedCard(card.id)}
+                                className="rounded-md border px-3 py-1 text-sm"
+                                disabled={isSelected}
+                              >
+                                {isSelected ? "Selected" : "Use this card"}
+                              </button>
+                            </div>
+                          );
+                        })}
+
+                        {workOrder?.selectedPaymentMethod && (
+                          <div className="rounded-md border p-3">
+                            <p className="font-paragraph text-sm text-secondary-foreground/70">
+                              Selected for this work order
+                            </p>
+                            <p className="font-medium text-secondary-foreground mt-1">
+                              {workOrder.selectedPaymentMethod.brand.toUpperCase()} ••••{" "}
+                              {workOrder.selectedPaymentMethod.last4}
+                              {workOrder.selectedPaymentMethod.expMonth &&
+                              workOrder.selectedPaymentMethod.expYear
+                                ? ` (${workOrder.selectedPaymentMethod.expMonth}/${workOrder.selectedPaymentMethod.expYear})`
+                                : ""}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* ADD CARD */}
+                    <Button
+                      onClick={startAddCard}
+                      disabled={isAddingCard}
+                      className="w-full font-paragraph"
+                    >
+                      {isAddingCard ? "Loading Card Form..." : "+ Add New Card"}
+                    </Button>
+
+                    {/* STRIPE ELEMENTS WILL GO HERE */}
+                    {clientSecret && (
+                      <Elements
+                        stripe={stripePromise}
+                        options={{
+                          clientSecret,
+                          appearance: {
+                            theme: "stripe",
+                          },
+                          loader: "auto"
+                        }}
+                      >
+                        <AddCardForm
+                          clientSecret={clientSecret}
+                          onSaved={handleCardSaved}
+                          onCancel={() => {
+                            setClientSecret(null);
+                            setIsAddingCard(false);
+                          }}
+                        />
+                      </Elements>
+                    )}
+
+                    {/* PAY WITH SAVED CARD
+                    <Button
+                      onClick={assignSavedCardToWorkOrder}
+                      disabled={!selectedCardId || isAddingCard || alreadyPaid}
+                    >
+                      Pay with Saved Card
+                    </Button> */}
+
+                    {/* EXISTING CHECKOUT (KEEP THIS) */}
+                    <Button
+                      onClick={startCheckout}
+                      disabled={alreadyPaid || amountDue <= 0 || isRedirecting}
+                      className="w-full font-paragraph"
+                    >
+                      Pay with Stripe Checkout
+                    </Button>
+
+                  </div>
 
                   <Button
                     variant="outline"

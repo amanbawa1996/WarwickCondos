@@ -12,8 +12,6 @@ export default function ResidentHeader() {
   // Use memberData directly from authenticated context
   const displayMember = memberData;
 
-  console.log(displayMember)
-  console.log("Test")
 
   const handleLogout = async () => {
     // Use the logout action from MemberProvider which handles basename-aware redirection

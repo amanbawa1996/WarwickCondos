@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useMember } from '@/integrations';
 import { WorkOrder } from '@/types/workorder';
+import { SavedCard } from "@/types/savedcard"
 import { StaffMembers } from '@/entities';
 import { notificationService } from "@/utils/notificationService";
 import { Button } from '@/components/ui/button';
@@ -29,6 +30,7 @@ export default function WorkOrderDetailsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSendingPaymentRequest, setIsSendingPaymentRequest] = useState(false);
+  const [isChargingCard, setIsChargingCard] = useState(false);
 
   const [editData, setEditData] = useState({
     status: 'pending' as WorkOrder['status'],
@@ -142,6 +144,42 @@ export default function WorkOrderDetailsPage() {
       });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleChargeSavedCard = async () => {
+    if (!workOrder?._id) return;
+
+    setIsChargingCard(true);
+    try {
+      const res = await fetch(`/api/admin/work-orders/${workOrder._id}/charge`, {
+        method: "POST",
+        credentials: "include",
+      });
+      
+      const data = await res.json();
+
+      console.log(data)
+
+      if (!res.ok) {
+        throw new Error(data?.message || data?.error || "Charge failed");
+      }
+
+      toast({
+        title: "Payment Successful",
+        description: "The selected saved card was charged successfully.",
+      });
+
+      await loadWorkOrder();
+    } catch (e) {
+      console.error(e);
+      toast({
+        title: "Charge Failed",
+        description: e instanceof Error ? e.message : "Could not charge the selected card.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsChargingCard(false);
     }
   };
 
@@ -566,23 +604,54 @@ export default function WorkOrderDetailsPage() {
                   <h3 className="font-heading text-2xl text-secondary-foreground mb-2">
                     Payment Information
                   </h3>
+
                   <p className="font-paragraph text-lg text-secondary-foreground/70">
-                    Total Amount:{' '}
+                    Total Amount:{" "}
                     <span className="font-heading text-2xl text-secondary-foreground">
                       ${workOrder.actualCost.toFixed(2)}
                     </span>
                   </p>
+
                   <p className="font-paragraph text-base text-secondary-foreground/60 mt-1">
                     Status: {workOrder.paymentStatus.toUpperCase()}
                   </p>
-                  {workOrder.paymentRequestedDate && (
-                    <p className="font-paragraph text-sm text-secondary-foreground/60 mt-2">
-                      Payment Requested: {format(new Date(workOrder.paymentRequestedDate), 'MMM dd, yyyy')}
+
+                  {workOrder.selectedPaymentMethod ? (
+                    <p className="font-paragraph text-base text-secondary-foreground/60 mt-1">
+                      Selected Card: {workOrder.selectedPaymentMethod.brand.toUpperCase()} ••••{" "}
+                      {workOrder.selectedPaymentMethod.last4}
+                      {workOrder.selectedPaymentMethod.expMonth &&
+                      workOrder.selectedPaymentMethod.expYear
+                        ? ` (${workOrder.selectedPaymentMethod.expMonth}/${workOrder.selectedPaymentMethod.expYear})`
+                        : ""}
+                    </p>
+                  ) : (
+                    <p className="font-paragraph text-base text-secondary-foreground/60 mt-1">
+                      Selected Card: None selected yet
                     </p>
                   )}
+
+                  {workOrder.paymentRequestedDate && (
+                    <p className="font-paragraph text-sm text-secondary-foreground/60 mt-2">
+                      Payment Requested: {format(new Date(workOrder.paymentRequestedDate), "MMM dd, yyyy")}
+                    </p>
+                  )}
+
+                  <div className="mt-4">
+                    <Button
+                      onClick={handleChargeSavedCard}
+                      disabled={
+                        isChargingCard ||
+                        workOrder.paymentStatus === "paid" ||
+                        !workOrder.selectedPaymentMethodId
+                      }
+                      className="bg-primary text-primary-foreground hover:bg-primary/90 font-paragraph"
+                    >
+                      {isChargingCard ? "Charging..." : "Charge Selected Card"}
+                    </Button>
+                  </div>
                 </div>
               </div>
-
             </div>
           )}
         </div>
