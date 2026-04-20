@@ -5,7 +5,6 @@ export interface WorkOrder {
   description: string;
   status: 'pending' | 'in-progress' | 'completed' | 'cancelled';
   priority: 'low' | 'medium' | 'high' | 'urgent';
-  category: string;
   unitNumber: string;
   ownerName: string;
   ownerEmail: string;

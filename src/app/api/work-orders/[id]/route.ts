@@ -40,7 +40,6 @@ function mapRow(row: any, selectedPaymentMethod: any = null) {
     description: row.description,
     status: row.status === "in_progress" ? "in-progress" : row.status,
     priority: row.priority,
-    category: row.category ?? undefined,
     unitNumber: row.unit_number,
     ownerName: row.owner_name,
     ownerEmail: row.owner_email,

@@ -504,12 +504,6 @@ export default function PaymentPage() {
                   </p>
                 </div>
 
-                <div>
-                  <p className="font-paragraph text-sm text-secondary-foreground/60">Category</p>
-                  <p className="font-paragraph text-base text-secondary-foreground mt-1">
-                    {workOrder.category}
-                  </p>
-                </div>
 
                 <div>
                   <p className="font-paragraph text-sm text-secondary-foreground/60">Description</p>

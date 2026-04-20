@@ -137,19 +137,6 @@ export default function SubmitRequestPage() {
                 />
               </div>
 
-              {/* <div className="space-y-2">
-                <Label htmlFor="category" className="font-paragraph text-base text-secondary-foreground">
-                  Category *
-                </Label>
-                <Input
-                  id="category"
-                  required
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="bg-secondary border-secondary-foreground/20 text-secondary-foreground"
-                  placeholder="e.g., Plumbing, Electrical, HVAC"
-                />
-              </div> */}
             </div>
 
             <div className="space-y-2">

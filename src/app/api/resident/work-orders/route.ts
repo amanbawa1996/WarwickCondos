@@ -46,7 +46,6 @@ function mapWorkOrderRow(row: any) {
         description: row.description,
         status,
         priority: row.priority,
-        category: row.category,
 
         unitNumber: row.unit_number,
         ownerName: row.owner_name,

@@ -527,10 +527,6 @@ export default function AdminDashboardPage() {
 
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm mb-4">
                       <div>
-                        <span className="font-paragraph text-secondary-foreground/60">Category:</span>
-                        <span className="font-paragraph text-secondary-foreground ml-2">{order.category || 'N/A'}</span>
-                      </div>
-                      <div>
                         <span className="font-paragraph text-secondary-foreground/60">Created:</span>
                         <span className="font-paragraph text-secondary-foreground ml-2">
                           {order._createdAt ? format(new Date(order._createdAt), 'MMM dd, yyyy') : 'N/A'}

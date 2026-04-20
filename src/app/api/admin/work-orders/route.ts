@@ -20,7 +20,6 @@ function mapWorkOrderRow(row: any) {
     description: row.description,
     status: row.status === "in_progress" ? "in-progress" : row.status,
     priority: row.priority,
-    category: row.category,
 
     unitNumber: row.unit_number,
     ownerName: row.owner_name,
