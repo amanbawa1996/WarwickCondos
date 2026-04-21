@@ -3,15 +3,19 @@
  * Handles sending magic link emails
  */
 
-const POSTMARK_API_KEY = process.env.POSTMARK_API_KEY || '';
-const POSTMARK_FROM_EMAIL = process.env.POSTMARK_FROM_EMAIL || 'noreply@example.com';
-const APP_BASE_URL = process.env.APP_BASE_URL || 'http://localhost:3000';
+const POSTMARK_API_KEY = process.env.POSTMARK_API_KEY || "";
+const POSTMARK_FROM_EMAIL =
+  process.env.POSTMARK_FROM_EMAIL || "Warwick Condos <no-reply@warwickcondos.com>";
+const POSTMARK_REPLY_TO =
+  process.env.POSTMARK_REPLY_TO || "aman.bawa@blueskyhospitalitysolutions.com";
+const APP_BASE_URL = process.env.APP_BASE_URL || "http://localhost:3000";
 
 export interface SendEmailOptions {
   to: string;
   subject: string;
   textBody: string;
   htmlBody?: string;
+  replyTo?: string;
 }
 
 export interface SendMagicLinkEmailOptions {
@@ -60,6 +64,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
       body: JSON.stringify({
         From: POSTMARK_FROM_EMAIL,
         To: options.to,
+        ReplyTo: options.replyTo || POSTMARK_REPLY_TO,
         Subject: options.subject,
         TextBody: options.textBody,
         HtmlBody: options.htmlBody,
