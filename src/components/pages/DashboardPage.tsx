@@ -301,13 +301,13 @@ export default function DashboardPage() {
                 )}
 
                 {/* Payment Pending Section for Residents */}
-                {role === 'resident' && order.paymentRequestedDate && order.paymentRequestAmount && order.paymentStatus === 'unpaid' && (
+                {role === 'resident' && order.paymentRequestedDate && order.actualCost && order.paymentStatus === 'unpaid' && (
                   <div className="bg-primary/10 border-l-4 border-destructive rounded-lg p-4 mb-4">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                       <div>
                         <p className="font-heading text-lg text-secondary-foreground mb-1">Payment Pending</p>
                         <p className="font-paragraph text-base text-secondary-foreground/70">
-                          Amount Due: <span className="font-heading text-lg text-secondary-foreground">${order.paymentRequestAmount.toFixed(2)}</span>
+                          Amount Due: <span className="font-heading text-lg text-secondary-foreground">${order.actualCost.toFixed(2)}</span>
                         </p>
                         <p className="font-paragraph text-sm text-secondary-foreground/60 mt-1">
                           Requested: {format(new Date(order.paymentRequestedDate), 'MMM dd, yyyy')}
@@ -326,7 +326,7 @@ export default function DashboardPage() {
                 {role === 'admin' && order.paymentRequestedDate && (
                   <div className="bg-primary/10 border-l-4 border-primary rounded-lg p-4 mb-4">
                     <p className="font-paragraph text-sm text-secondary-foreground/70">
-                      Payment Requested: {format(new Date(order.paymentRequestedDate), 'MMM dd, yyyy')} • Amount: ${order.paymentRequestAmount?.toFixed(2) || 'N/A'}
+                      Payment Requested: {format(new Date(order.paymentRequestedDate), 'MMM dd, yyyy')} • Amount: ${order.actualCost?.toFixed(2) || 'N/A'}
                     </p>
                   </div>
                 )}

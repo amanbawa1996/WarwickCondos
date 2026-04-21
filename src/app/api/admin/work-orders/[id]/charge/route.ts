@@ -81,6 +81,13 @@ export async function POST(
       );
     }
 
+    if (!resident.email) {
+      return NextResponse.json(
+        { error: "resident_email_missing" },
+        { status: 400 }
+      );
+    }
+
     const amountDollars =
       workOrder.payment_request_amount ??
       workOrder.actual_cost ??

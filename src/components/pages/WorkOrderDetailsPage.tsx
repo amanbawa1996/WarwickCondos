@@ -111,7 +111,7 @@ export default function WorkOrderDetailsPage() {
         actualCost: editData.actualCost || 0,
 
         // your rule: actualCost is source of truth
-        paymentRequestAmount: editData.actualCost > 0 ? editData.actualCost : null,
+        //paymentRequestAmount: editData.actualCost > 0 ? editData.actualCost : null,
 
         // // keep unpaid until Stripe later
         // paymentStatus: "unpaid",
@@ -208,7 +208,7 @@ export default function WorkOrderDetailsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           paymentRequestedDate: new Date().toISOString(),
-          paymentRequestAmount: paymentAmount,
+          //paymentRequestAmount: paymentAmount,
           paymentStatus: "unpaid",
         }),
       });

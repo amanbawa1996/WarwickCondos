@@ -40,7 +40,6 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     if ("estimatedCost" in body) updates.estimated_cost = body.estimatedCost ?? null;
     if ("actualCost" in body) updates.actual_cost = body.actualCost ?? null;
 
-    if ("paymentRequestAmount" in body) updates.payment_request_amount = body.paymentRequestAmount ?? null;
     if ("paymentRequestedDate" in body) updates.payment_requested_date = body.paymentRequestedDate ?? null;
 
     if ("paymentStatus" in body) updates.payment_status = body.paymentStatus ?? null;

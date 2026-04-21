@@ -50,7 +50,6 @@ function mapRow(row: any, selectedPaymentMethod: any = null) {
     estimatedCost: row.estimated_cost ?? undefined,
     actualCost: row.actual_cost ?? undefined,
     paymentStatus: row.payment_status ?? "unpaid",
-    paymentRequestAmount: row.payment_request_amount ?? undefined,
     paymentRequestedDate: row.payment_requested_date ?? undefined,
     paymentUrl: row.payment_url ?? undefined,
     selectedPaymentMethodId: row.selected_payment_method_id ?? null,

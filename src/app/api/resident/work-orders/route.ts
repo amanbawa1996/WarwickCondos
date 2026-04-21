@@ -58,7 +58,7 @@ function mapWorkOrderRow(row: any) {
         actualCost: row.actual_cost ?? undefined,
 
         paymentStatus: row.payment_status ?? undefined,
-        paymentRequestAmount: row.payment_request_amount ?? undefined,
+        
         paymentRequestedDate: row.payment_requested_date ?? undefined,
 
         scheduledDate: row.scheduled_date ?? undefined,
