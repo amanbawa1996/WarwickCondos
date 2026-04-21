@@ -61,7 +61,7 @@ export default function PaymentPage() {
   // Amount due — mirror server logic (server remains source of truth)
   function getAmountDue(order: WorkOrder | null): number {
     if (!order) return 0;
-    return Number(order.paymentRequestAmount ?? order.actualCost ?? order.estimatedCost ?? 0);
+    return Number(order.actualCost ?? order.estimatedCost ?? 0);
   }
 
   // async function startCheckout() {

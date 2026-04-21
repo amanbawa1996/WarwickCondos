@@ -39,7 +39,7 @@ export default function WorkOrderDetailsPage() {
     assignedTo: '',
     estimatedCost: 0,
     actualCost: 0,
-    paymentRequestAmount: 0,
+    
     scheduledDate: '',
   });
 
@@ -72,7 +72,6 @@ export default function WorkOrderDetailsPage() {
         assignedTo: order.assigned_staff_id || "",
         estimatedCost: order.estimatedCost || 0,
         actualCost: order.actualCost || 0,
-        paymentRequestAmount: order.paymentRequestAmount || 0,
         scheduledDate: order.scheduledDate ? format(new Date(order.scheduledDate), "yyyy-MM-dd") : "",
       });
     } catch (e) {
@@ -201,7 +200,7 @@ export default function WorkOrderDetailsPage() {
     setIsSendingPaymentRequest(true);
     try {
       const paymentAmount =
-        editData.paymentRequestAmount > 0 ? editData.paymentRequestAmount : cost;
+        editData.actualCost > 0 ? editData.actualCost : cost;
 
       const res = await fetch(`/api/admin/work-orders/${workOrder._id}`, {
         method: "PATCH",
@@ -377,7 +376,7 @@ export default function WorkOrderDetailsPage() {
                           assignedTo: workOrder.assigned_staff_id || '',
                           estimatedCost: workOrder.estimatedCost || 0,
                           actualCost: workOrder.actualCost || 0,
-                          paymentRequestAmount: workOrder.paymentRequestAmount || 0,
+                          
                           scheduledDate: workOrder.scheduledDate ? format(new Date(workOrder.scheduledDate), 'yyyy-MM-dd') : '',
                         });
                       }}
@@ -529,20 +528,7 @@ export default function WorkOrderDetailsPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="paymentRequestAmount" className="font-paragraph text-sm text-secondary-foreground/60">
-                      Payment Request Amount (Optional - leave blank to use Actual Cost)
-                    </Label>
-                    <Input
-                      id="paymentRequestAmount"
-                      type="number"
-                      step="0.01"
-                      value={editData.paymentRequestAmount}
-                      onChange={(e) => setEditData({ ...editData, paymentRequestAmount: parseFloat(e.target.value) || 0 })}
-                      className="bg-secondary border-secondary-foreground/20 text-secondary-foreground"
-                      placeholder="Leave blank to use Actual Cost"
-                    />
-                  </div>
+                  
                 </>
               ) : (
                 <>

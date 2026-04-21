@@ -87,7 +87,7 @@ export default function AdminDashboardPage() {
           _id: o.resident_id,
           title: o.title,
           actualCost: o.actualCost,
-          paymentRequestAmount: o.paymentRequestAmount,
+          
           paymentStatus: o.paymentStatus,
           paymentRequestedDate: o.paymentRequestedDate,
         })),
@@ -550,7 +550,7 @@ export default function AdminDashboardPage() {
                     {order.paymentRequestedDate && (
                       <div className="bg-primary/10 border-l-4 border-primary rounded-lg p-4 mb-4">
                         <p className="font-paragraph text-sm text-secondary-foreground/70">
-                          Payment Requested: {format(new Date(order.paymentRequestedDate), 'MMM dd, yyyy')} • Amount: ${order.paymentRequestAmount?.toFixed(2) || 'N/A'} • Status: {order.paymentStatus.toUpperCase()}
+                          Payment Requested: {format(new Date(order.paymentRequestedDate), 'MMM dd, yyyy')} • Amount: ${order.actualCost?.toFixed(2) || 'N/A'} • Status: {order.paymentStatus.toUpperCase()}
                         </p>
                       </div>
                     )}

@@ -41,6 +41,7 @@ export async function POST(
       .from("work_orders")
       .select(`
         id,
+        title,
         resident_id,
         estimated_cost,
         actual_cost,
@@ -69,7 +70,7 @@ export async function POST(
 
     const { data: resident, error: residentError } = await sb
       .from("residents")
-      .select("id, stripe_customer_id")
+      .select("id, stripe_customer_id, email, unit_number, first_name, last_name")
       .eq("id", workOrder.resident_id)
       .single();
 
@@ -110,6 +111,8 @@ export async function POST(
       );
     }
 
+    const description = `Warwick Condos - ${workOrder.title ?? "Work Order"} - Unit ${resident.unit_number ?? ""}`.trim();
+
     const intent = await stripe.paymentIntents.create({
       amount,
       currency: "usd",
@@ -117,9 +120,12 @@ export async function POST(
       payment_method: workOrder.selected_payment_method_id,
       confirm: true,
       off_session: true,
+      receipt_email: resident.email,
+      description,
       metadata: {
         work_order_id: workOrder.id,
         resident_id: workOrder.resident_id,
+        unit_number: resident.unit_number ?? "",
       },
     });
 
