@@ -49,7 +49,7 @@ export async function POST(req: Request) {
     }
 
     // Amount source of truth: DB
-    const amount = Number(wo.payment_request_amount ?? wo.actual_cost ?? wo.estimated_cost ?? 0);
+    const amount = Number(wo.actual_cost ?? wo.estimated_cost ?? 0);
     if (!Number.isFinite(amount) || amount <= 0) {
       return NextResponse.json({ error: "invalid_payment_amount" }, { status: 400 });
     }

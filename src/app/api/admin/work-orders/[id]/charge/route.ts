@@ -43,9 +43,10 @@ export async function POST(
         id,
         title,
         resident_id,
+        owner_email,
         estimated_cost,
         actual_cost,
-        payment_request_amount,
+        
         payment_status,
         selected_payment_method_id,
         stripe_payment_intent_id
@@ -54,7 +55,7 @@ export async function POST(
       .single();
 
     if (workOrderError || !workOrder) {
-      return NextResponse.json({ error: "work_order_not_found" }, { status: 404 });
+      return NextResponse.json({ error: workOrderError }, { status: 404 });
     }
 
     if (String(workOrder.payment_status || "").toLowerCase() === "paid") {
@@ -89,7 +90,6 @@ export async function POST(
     }
 
     const amountDollars =
-      workOrder.payment_request_amount ??
       workOrder.actual_cost ??
       workOrder.estimated_cost ??
       0;
@@ -131,7 +131,7 @@ export async function POST(
       description,
       metadata: {
         work_order_id: workOrder.id,
-        resident_id: workOrder.resident_id,
+        resident_email: workOrder.owner_email,
         unit_number: resident.unit_number ?? "",
       },
     });
