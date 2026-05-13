@@ -165,6 +165,14 @@ export default function AdminDashboardPage() {
     completed: workOrders.filter((o) => o.status === 'completed').length,
   };
 
+  const financialStats = {
+    totalActualCost: workOrders.reduce((sum,o) => sum +Number(o.actualCost ?? 0), 0),
+    totalCharged: workOrders.reduce((sum,o)=> sum+Number(o.totalChargeAmount ?? (Number(o.actualCost ?? 0) + Number(o.processingFee ?? 0))),0),
+    totalPaid: workOrders.filter((o) => (o.paymentStatus || "").toLocaleLowerCase()=="paid").reduce((sum,o)=>sum+Number(o.totalChargeAmount ?? (Number(o.actualCost ?? 0)+Number(o.processingFee ?? 0))),0),
+    totalUnpaid: workOrders.filter((o) => (o.paymentStatus || "").toLocaleLowerCase()!="paid").reduce((sum,o)=>sum+Number(o.totalChargeAmount ?? (Number(o.actualCost ?? 0)+Number(o.processingFee ?? 0))),0),
+    
+  }
+
   const pendingResidents = residents.filter((r) => r.approvalStatus === 'pending');
   const approvedResidents = residents.filter((r) => r.approvalStatus === 'approved');
 
@@ -238,6 +246,12 @@ export default function AdminDashboardPage() {
   return (
     <div className="min-h-screen bg-primary">
       <AdminHeader />
+
+      <Link to="/admin/reports">
+        <Button className="bg-secondary-foreground text-secondary hover:bg-secondary-foreground/90 font-paragraph">
+          View Reports
+        </Button>
+      </Link>
 
       <main className="max-w-[120rem] mx-auto px-6 lg:px-12 py-16">
         <div className="mb-12">
@@ -550,7 +564,13 @@ export default function AdminDashboardPage() {
                     {order.paymentRequestedDate && (
                       <div className="bg-primary/10 border-l-4 border-primary rounded-lg p-4 mb-4">
                         <p className="font-paragraph text-sm text-secondary-foreground/70">
-                          Payment Requested: {format(new Date(order.paymentRequestedDate), 'MMM dd, yyyy')} • Amount: ${order.actualCost?.toFixed(2) || 'N/A'} • Status: {order.paymentStatus.toUpperCase()}
+                          Payment Requested: {format(new Date(order.paymentRequestedDate), 'MMM dd, yyyy')} 
+                        </p>
+                        <p className="font-paragraph text-sm text-secondary-foreground/70 mt-1">
+                          Actual Cost: ${Number(order.actualCost ?? 0).toFixed(2)} •
+                          Credit Card Processing Fee: ${Number(order.processingFee ?? 0).toFixed(2)} •
+                          Total Charge: ${Number(order.totalChargeAmount ?? ((Number(order.actualCost ?? 0) + Number(order.processingFee ?? 0)))).toFixed(2)} •
+                          Status: {(order.paymentStatus || "unpaid").toUpperCase()}
                         </p>
                       </div>
                     )}

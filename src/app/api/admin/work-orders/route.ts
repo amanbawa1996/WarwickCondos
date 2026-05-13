@@ -30,7 +30,8 @@ function mapWorkOrderRow(row: any) {
 
     estimatedCost: row.estimated_cost ?? undefined,
     actualCost: row.actual_cost ?? undefined,
-
+    processingFee: row.processing_fee ?? 0,
+    totalChargeAmount: row.total_charge_amount ?? undefined,
     paymentStatus: row.payment_status ?? "unpaid",
     
     paymentRequestedDate: row.payment_requested_date ?? undefined,

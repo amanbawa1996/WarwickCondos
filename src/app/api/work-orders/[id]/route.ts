@@ -52,6 +52,8 @@ function mapRow(row: any, selectedPaymentMethod: any = null) {
     paymentStatus: row.payment_status ?? "unpaid",
     paymentRequestedDate: row.payment_requested_date ?? undefined,
     paymentUrl: row.payment_url ?? undefined,
+    processingFee: row.processing_fee ?? 0,
+    totalChargeAmount: row.total_charge_amount ?? undefined,
     selectedPaymentMethodId: row.selected_payment_method_id ?? null,
     selectedPaymentMethod,
     _createdAt: row.created_at,

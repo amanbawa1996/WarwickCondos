@@ -59,11 +59,19 @@ export default function PaymentPage() {
 
 
   // Amount due — mirror server logic (server remains source of truth)
-  function getAmountDue(order: WorkOrder | null): number {
-    if (!order) return 0;
-    return Number(order.actualCost ?? order.estimatedCost ?? 0);
-  }
+  function getPaymentBreakdown(order: WorkOrder | null) {
+    const actualCost = Number(order?.actualCost ?? 0);
+    const processingFee = Number(order?.processingFee ?? 0);
+    const totalChargeAmount =
+      Number(order?.totalChargeAmount ?? 0) ||
+      Number((actualCost + processingFee).toFixed(2));
 
+    return {
+      actualCost,
+      processingFee,
+      totalChargeAmount,
+    };
+  }
   // async function startCheckout() {
   //   if (!workOrder) return;
 
@@ -239,7 +247,7 @@ export default function PaymentPage() {
     });
   }
 
-  const amountDue = getAmountDue(workOrder);
+  const {actualCost, processingFee, totalChargeAmount} = getPaymentBreakdown(workOrder);
   const alreadyPaid = (workOrder?.paymentStatus || "unpaid").toLowerCase() === "paid";
 
 
@@ -339,17 +347,37 @@ export default function PaymentPage() {
                   Payment Details
                 </h2>
 
-                <div className="flex items-center justify-between py-4 border-b border-secondary-foreground/10">
-                  <span className="font-paragraph text-secondary-foreground/70">Total</span>
-                  <span className="font-heading text-2xl text-secondary-foreground">
-                    ${amountDue.toFixed(2)}
-                  </span>
+                <div className="space-y-4 py-4 border-b border-secondary-foreground/10">
+                  <div className="flex items-center justify-between">
+                    <span className="font-paragraph text-secondary-foreground/70">
+                      Actual Cost
+                    </span>
+                    <span className="font-paragraph text-secondary-foreground">
+                      ${actualCost.toFixed(2)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="font-paragraph text-secondary-foreground/70">
+                      Credit Card Processing Fee
+                    </span>
+                    <span className="font-paragraph text-secondary-foreground">
+                      ${processingFee.toFixed(2)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-secondary-foreground/10">
+                    <span className="font-heading text-secondary-foreground">Total Charge</span>
+                    <span className="font-heading text-2xl text-secondary-foreground">
+                      ${totalChargeAmount.toFixed(2)}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="mt-6 space-y-3">
                   <div className="space-y-4">
 
-                    {/* SAVED CARDS */}
+                    
                     {/* SAVED CARDS */}
                     {savedCards.length > 0 && (
                       <div className="space-y-3">
@@ -512,14 +540,33 @@ export default function PaymentPage() {
                   </p>
                 </div>
 
-                <div className="pt-6 border-t border-secondary-foreground/20">
-                  <div className="flex justify-between items-center pt-4">
-                    <span className="font-heading text-2xl text-secondary-foreground">Total</span>
-                    <span className="font-heading text-3xl text-secondary-foreground">
-                      ${amountDue.toFixed(2)}
+                <div className="pt-6 border-t border-secondary-foreground/20 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="font-paragraph text-secondary-foreground/70">Actual Cost</span>
+                    <span className="font-paragraph text-secondary-foreground">
+                      ${actualCost.toFixed(2)}
                     </span>
                   </div>
-                  
+
+                  <div className="flex justify-between items-center">
+                    <span className="font-paragraph text-secondary-foreground/70">
+                      Credit Card Processing Fee
+                    </span>
+                    <span className="font-paragraph text-secondary-foreground">
+                      ${processingFee.toFixed(2)}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center pt-4 border-t border-secondary-foreground/20">
+                    <span className="font-heading text-2xl text-secondary-foreground">Total Charge</span>
+                    <span className="font-heading text-3xl text-secondary-foreground">
+                      ${totalChargeAmount.toFixed(2)}
+                    </span>
+                  </div>
+
+                  <p className="font-paragraph text-sm text-secondary-foreground/60 pt-2">
+                    A credit card processing fee is added to card payments.
+                  </p>
                 </div>
               </div>
             </div>

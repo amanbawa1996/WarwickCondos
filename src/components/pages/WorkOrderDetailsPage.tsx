@@ -34,6 +34,12 @@ export default function WorkOrderDetailsPage() {
   const [isSendingPaymentRequest, setIsSendingPaymentRequest] = useState(false);
   const [isChargingCard, setIsChargingCard] = useState(false);
 
+  const actualCost = Number(workOrder?.actualCost ?? 0);
+  const processingFee = Number(workOrder?.processingFee ?? 0);
+  const totalChargeAmount =
+    Number(workOrder?.totalChargeAmount ?? 0) ||
+    Number((actualCost + processingFee).toFixed(2));
+
   const [editData, setEditData] = useState({
     status: 'pending' as WorkOrder['status'],
     assignedTo: '',
@@ -593,11 +599,33 @@ export default function WorkOrderDetailsPage() {
                     Payment Information
                   </h3>
 
-                  <p className="font-paragraph text-lg text-secondary-foreground/70">
-                    Total Amount:{" "}
-                    <span className="font-heading text-2xl text-secondary-foreground">
-                      ${workOrder.actualCost.toFixed(2)}
-                    </span>
+                  <div className="mt-3 space-y-2">
+                    <div className="flex justify-between items-center max-w-md">
+                      <span className="font-paragraph text-secondary-foreground/70">Actual Cost</span>
+                      <span className="font-paragraph text-secondary-foreground">
+                        ${actualCost.toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center max-w-md">
+                      <span className="font-paragraph text-secondary-foreground/70">
+                        Credit Card Processing Fee
+                      </span>
+                      <span className="font-paragraph text-secondary-foreground">
+                        ${processingFee.toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center max-w-md pt-2 border-t border-secondary-foreground/20">
+                      <span className="font-heading text-secondary-foreground">Total Charge</span>
+                      <span className="font-heading text-2xl text-secondary-foreground">
+                        ${totalChargeAmount.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="font-paragraph text-sm text-secondary-foreground/60 mt-3">
+                    A credit card processing fee is added to card payments.
                   </p>
 
                   <p className="font-paragraph text-base text-secondary-foreground/60 mt-1">

@@ -12,6 +12,7 @@ import StaffManagementPage from '@/components/pages/StaffManagementPage';
 import WorkOrderDetailsPage from '@/components/pages/WorkOrderDetailsPage';
 import ResidentHomePage from "@/components/pages/ResidentHomePage";
 import PaymentPage from '@/components/pages/PaymentPage';
+import ReportsPage from '@/components/pages/ReportsPage';
 import ProfilePage from '@/components/pages/ProfilePage';
 
 import UnifiedLoginPage from '@/components/pages/UnifiedLoginPage';
@@ -134,6 +135,7 @@ export default function AppRouter() {
         { element: <RequireAdmin />, children: [
             { path: "AdminDashboard", element: <AdminDashboardPage /> },
             { path: "staff-management", element: <StaffManagementPage /> },
+            { path: "admin/reports", element: <ReportsPage /> },
           ]
         },
         

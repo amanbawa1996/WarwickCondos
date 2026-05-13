@@ -18,7 +18,8 @@ export interface WorkOrder {
   paymentStatus: 'unpaid' | 'paid';
   paymentRequestedDate?: Date | string;
  
-
+  processingFee?: number;
+  totalChargeAmount?: number;
   selectedPaymentMethodId?: string | null;
   selectedPaymentMethod?: {
     id: string;
