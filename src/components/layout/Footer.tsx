@@ -54,6 +54,18 @@ export default function Footer() {
                   (555) 123-4567
                 </span>
               </div>
+              <div className="flex items-center gap-3">
+                <Mail size={18} className="text-primary-foreground/80" />
+                <span className="font-paragraph text-base text-primary-foreground/80">
+                  manager@thewarwickcondominium.com
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <Phone size={18} className="text-primary-foreground/80" />
+                <span className="font-paragraph text-base text-primary-foreground/80">
+                  (215) 678-1680
+                </span>
+              </div>
             </div>
           </div>
         </div>
