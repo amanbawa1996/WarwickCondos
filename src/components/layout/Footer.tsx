@@ -45,13 +45,13 @@ export default function Footer() {
               <div className="flex items-center gap-3">
                 <Mail size={18} className="text-primary-foreground/80" />
                 <span className="font-paragraph text-base text-primary-foreground/80">
-                  anca.aghintei@blueskyhospitalitysolutions.com
+                  aubrie.schatz@warwickrittenhouse.com
                 </span>
               </div>
               <div className="flex items-center gap-3">
                 <Phone size={18} className="text-primary-foreground/80" />
                 <span className="font-paragraph text-base text-primary-foreground/80">
-                  (555) 123-4567
+                  (445) 295-7387
                 </span>
               </div>
               <div className="flex items-center gap-3">
