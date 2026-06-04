@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { sendResidentRegistrationAlertEmail } from "@/backend/postmark";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,7 @@ const sb = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
   { auth: { persistSession: false } }
 );
+
 
 export async function POST(req: Request) {
   try {
@@ -56,6 +58,20 @@ export async function POST(req: Request) {
       admin_id: "all",
     });
 
+    try {
+      await sendResidentRegistrationAlertEmail({
+        residentName: `${resident.first_name} ${resident.last_name}`.trim(),
+        residentEmail: resident.email,
+        phoneNumber: phone_number,
+        unitNumber: resident.unit_number,
+      });
+    } catch (emailError) {
+      console.error(
+        "[POST /api/resident/register] registration alert email failed",
+        emailError
+      );
+    }
+    
     return NextResponse.json({ ok: true }, { status: 201 });
   } catch (e) {
     console.error("[POST /api/resident/register]", e);

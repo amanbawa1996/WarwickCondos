@@ -1,7 +1,16 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { checkAllowlist } from "@/backend/allowlist";
 import { generateOtpCode, hashOtp, storeOtp} from "@/backend/auth";
 import { sendOtpEmail  } from "@/backend/postmark";
+
+function sb() {
+  return createClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+}
 
 export async function POST(req: Request) {
   try {
@@ -13,21 +22,64 @@ export async function POST(req: Request) {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-   
+    const { data: resident } = await sb()
+      .from("residents")
+      .select("email, approval_status")
+      .eq("email", normalizedEmail)
+      .maybeSingle();
+
+    const { data: admin } = await sb()
+      .from("admins")
+      .select("email, is_active")
+      .eq("email", normalizedEmail)
+      .maybeSingle();
 
     // Check role + active status (admins.is_active, residents.approval_status === 'approved')
-    const allow = await checkAllowlist(email);
 
+    if (admin?.email) {
+      if (admin.is_active == false) {
+        return NextResponse.json({ok: false, status: "inactive_admin"}, {status: 403});
+      }
+
+      const allow = await checkAllowlist(email);
+
+      if (!allow || !allow.isActive) {
+        // Do not leak that user isn't allowed/found
+        return NextResponse.json({ ok: true });
+      }
+
+      const otp = generateOtpCode();
+      const otpHash = hashOtp(allow.email, otp);
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+
+      await storeOtp(allow.email, allow.role, otpHash, expiresAt);
+      await sendOtpEmail({to: allow.email, otp});
+
+      return NextResponse.json({ok: false, status: "otp_sent"});
+    }
+    
+    if (!resident?.email) {
+      return NextResponse.json({ ok: false, status: "not_found" }, { status: 404 });
+    }
+
+    if (resident.approval_status !== "approved") {
+      return NextResponse.json(
+        { ok: false, status: "pending_approval" },
+        { status: 403 }
+      );
+    }
+
+    const allow = await checkAllowlist(normalizedEmail);
     if (!allow || !allow.isActive) {
-      // Do not leak that user isn't allowed/found
-      return NextResponse.json({ ok: true });
+      return NextResponse.json({ ok: false, status: "not_allowed" }, { status: 403 });
     }
 
     const otp = generateOtpCode();
     const otpHash = hashOtp(allow.email, otp);
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
     await storeOtp(allow.email, allow.role, otpHash, expiresAt);
+
 
     // Create token (raw token is only sent via email)
     // const rawToken = generateToken(32);
@@ -58,7 +110,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   } catch (err) {
     // Still return ok to avoid leaking anything
-    return NextResponse.json({ ok: true });
+    console.error("[POST /api/auth/start]", err);
+    return NextResponse.json({ ok: false, status: "server_error" }, { status: 500 });
   }
 }
 

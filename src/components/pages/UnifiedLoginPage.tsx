@@ -68,24 +68,51 @@ export default function UnifiedLoginPage() {
     try {
       const email = loginEmail.trim().toLowerCase();
 
-      await fetch("/api/auth/start", {
+      const res = await fetch("/api/auth/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
 
-      toast({
-        title: "Verification Code Sent",
-        description: "If your email is registered, you will receive a 6-digit code shortly.",
-      });
+      const data = await res.json().catch(() => ({}));
 
-      setLoginEmail(email);
-      setLoginStep("otp");
+      if (data?.ok &&data?.status ==="otp_sent") {
+        toast({
+          title: "Verification Code Sent",
+          description: "If your email is registered, you will receive a 6-digit code shortly.",
+        });
+
+        setLoginEmail(email);
+        setLoginStep("otp");
+        return;
+      }
+      
+      if (data?.status === "not_found") {
+        toast({
+          title: "Email Address Not Found",
+          description: "Please register first or use the correct email address.",
+          variant: "destructive",
+        });
+
+        return;
+      }
+
+      if (data?.status === "pending_approval") {
+        toast({
+          title: "Approval Required",
+          description: "If you have already registered, please wait for administrator approval before logging in.",
+          variant: "destructive",
+        });
+
+        return;
+      }
+      
+      
     } catch (error) {
       console.error("❌ Error requesting OTP:", error);
       toast({
-        title: "Error",
-        description: "An error occurred. Please try again.",
+        title: "Unable to Send Code",
+        description: "Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -238,50 +265,58 @@ export default function UnifiedLoginPage() {
 
           {/* Login Form */}
           {activeTab === 'login' && loginStep === 'email' && (
-  <form onSubmit={handleRequestCode} className="space-y-6">
-    <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex gap-3">
-      <AlertCircle size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
-      <div className="font-paragraph text-sm text-blue-800">
-        <p className="font-semibold mb-1">Email Code Login</p>
-        <p>We'll send you a secure 6-digit verification code.</p>
-      </div>
-    </div>
+            <form onSubmit={handleRequestCode} className="space-y-6">
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex gap-3">
+                <AlertCircle size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
+                <div className="font-paragraph text-sm text-blue-800">
+                  <p className="font-semibold mb-1">Resident Login Instructions</p>
+                  <p>Residents must register first before requesting a verification code.</p>
+                  <p>If you have already registered, please wait for administrator approval before logging in.</p>
+                </div>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex gap-3">
+                <AlertCircle size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
+                <div className="font-paragraph text-sm text-blue-800">
+                  <p className="font-semibold mb-1">Email Code Login</p>
+                  <p>We'll send you a secure 6-digit verification code.</p>
+                </div>
+              </div>
 
-    <div className="space-y-2">
-      <Label htmlFor="login-email" className="font-paragraph text-base text-secondary-foreground">
-        Email Address
-      </Label>
-      <Input
-        id="login-email"
-        type="email"
-        required
-        value={loginEmail}
-        onChange={(e) => setLoginEmail(e.target.value)}
-        className="bg-secondary border-secondary-foreground/20 text-secondary-foreground"
-        placeholder="your@email.com"
-      />
-    </div>
+              <div className="space-y-2">
+                <Label htmlFor="login-email" className="font-paragraph text-base text-secondary-foreground">
+                  Email Address
+                </Label>
+                <Input
+                  id="login-email"
+                  type="email"
+                  required
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  className="bg-secondary border-secondary-foreground/20 text-secondary-foreground"
+                  placeholder="your@email.com"
+                />
+              </div>
 
-    <Button
-      type="submit"
-      disabled={isLoading}
-      className="w-full bg-secondary-foreground text-secondary hover:bg-secondary-foreground/90 font-paragraph text-lg py-6"
-    >
-      {isLoading ? 'Sending...' : 'Send Verification Code'}
-    </Button>
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-secondary-foreground text-secondary hover:bg-secondary-foreground/90 font-paragraph text-lg py-6"
+              >
+                {isLoading ? 'Sending...' : 'Send Verification Code'}
+              </Button>
 
-    <p className="text-center font-paragraph text-sm text-secondary-foreground/70">
-      Don't have an account?{" "}
-      <button
-        type="button"
-        onClick={() => setActiveTab("register")}
-        className="text-secondary-foreground hover:underline font-semibold"
-      >
-        Register here
-      </button>
-    </p>
-  </form>
-)}
+              <p className="text-center font-paragraph text-sm text-secondary-foreground/70">
+                Don't have an account?{" "}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("register")}
+                  className="text-secondary-foreground hover:underline font-semibold"
+                >
+                  Register here
+                </button>
+              </p>
+            </form>
+          )}
 
           {activeTab === 'login' && loginStep === 'otp' && (
             <form onSubmit={handleVerifyOtp} className="space-y-6">

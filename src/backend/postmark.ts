@@ -28,19 +28,6 @@ export interface SendOtpEmailOptions {
   otp: string;
 }
 
-export interface SendPaymentReceiptEmailOptions {
-  to: string;
-  residentName?: string;
-  unitNumber?: string;
-  workOrderTitle: string;
-  actualCost: number;
-  processingFee: number;
-  totalChargeAmount: number;
-  paymentDate: string;
-  cardBrand?: string;
-  cardLast4?: string;
-  paymentIntentId: string;
-}
 
 function buildVerifyUrl(token: string) {
   const base = APP_BASE_URL|| "http://localhost:3000";
@@ -270,6 +257,218 @@ export async function sendPaymentReceiptEmail(
 
           <hr style="border:none;border-top:1px solid #ddd;margin:20px 0;" />
           <p style="color:#999;font-size:12px;">Do not reply to this email. This is an automated message.</p>
+        </body>
+      </html>
+    `,
+  });
+}
+
+function getAdminNotificationRecipients(): string[] {
+  return String(process.env.WARWICK_ADMIN_NOTIFY_EMAILS || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+export interface SendResidentRegistrationAlertEmailOptions {
+  residentName: string;
+  residentEmail: string;
+  phoneNumber?: string | null;
+  unitNumber?: string | null;
+}
+
+export async function sendResidentRegistrationAlertEmail(
+  options: SendResidentRegistrationAlertEmailOptions
+): Promise<void> {
+  const recipients = getAdminNotificationRecipients();
+  if (!recipients.length) return;
+
+  await sendEmail({
+    to: recipients.join(","),
+    subject: "New Resident Registration - Warwick Condos",
+    textBody: [
+      `A new resident registration has been submitted.`,
+      ``,
+      `Name: ${options.residentName}`,
+      `Email: ${options.residentEmail}`,
+      `Phone: ${options.phoneNumber || "N/A"}`,
+      `Unit: ${options.unitNumber || "N/A"}`,
+    ].join("\n"),
+    htmlBody: `
+      <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+          <h2>New Resident Registration</h2>
+          <p>A new resident registration has been submitted.</p>
+          <table cellpadding="8" cellspacing="0" border="0" style="border-collapse: collapse; width: 100%; max-width: 620px;">
+            <tr>
+              <td style="border-bottom: 1px solid #ddd;"><strong>Name</strong></td>
+              <td style="border-bottom: 1px solid #ddd;">${options.residentName}</td>
+            </tr>
+            <tr>
+              <td style="border-bottom: 1px solid #ddd;"><strong>Email</strong></td>
+              <td style="border-bottom: 1px solid #ddd;">${options.residentEmail}</td>
+            </tr>
+            <tr>
+              <td style="border-bottom: 1px solid #ddd;"><strong>Phone</strong></td>
+              <td style="border-bottom: 1px solid #ddd;">${options.phoneNumber || "N/A"}</td>
+            </tr>
+            <tr>
+              <td style="border-bottom: 1px solid #ddd;"><strong>Unit</strong></td>
+              <td style="border-bottom: 1px solid #ddd;">${options.unitNumber || "N/A"}</td>
+            </tr>
+          </table>
+        </body>
+      </html>
+    `,
+  });
+}
+
+export interface SendResidentApprovedEmailOptions {
+  to: string;
+  firstName?: string;
+}
+
+export async function sendResidentApprovedEmail(
+  options: SendResidentApprovedEmailOptions
+): Promise<void> {
+  const firstName = options.firstName?.trim() || "Resident";
+
+  await sendEmail({
+    to: options.to,
+    subject: "Your Warwick Condos Account Has Been Approved",
+    textBody: [
+      `Hello ${firstName},`,
+      ``,
+      `Your Warwick Condos account has been approved.`,
+      `You may now log in using your registered email address and verification code.`,
+      ``,
+      `Thank you,`,
+      `Warwick Condos`,
+    ].join("\n"),
+    htmlBody: `
+      <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+          <h2>Account Approved</h2>
+          <p>Hello ${firstName},</p>
+          <p>Your Warwick Condos account has been approved.</p>
+          <p>You may now log in using your registered email address and verification code.</p>
+          <p>Thank you,<br/>Warwick Condos</p>
+        </body>
+      </html>
+    `,
+  });
+}
+
+export interface SendWorkOrderCreatedAdminAlertEmailOptions {
+  title: string;
+  description: string;
+  unitNumber: string;
+  ownerName?: string | null;
+  ownerEmail?: string | null;
+  priority?: string | null;
+}
+
+export async function sendWorkOrderCreatedAdminAlertEmail(
+  options: SendWorkOrderCreatedAdminAlertEmailOptions
+): Promise<void> {
+  const recipients = getAdminNotificationRecipients();
+  if (!recipients.length) return;
+
+  await sendEmail({
+    to: recipients.join(","),
+    subject: `New Work Order Submitted - Unit ${options.unitNumber}`,
+    textBody: [
+      `A new work order has been submitted.`,
+      ``,
+      `Title: ${options.title}`,
+      `Unit: ${options.unitNumber}`,
+      `Owner: ${options.ownerName || "N/A"}`,
+      `Email: ${options.ownerEmail || "N/A"}`,
+      `Priority: ${options.priority || "medium"}`,
+      `Description: ${options.description}`,
+    ].join("\n"),
+    htmlBody: `
+      <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+          <h2>New Work Order Submitted</h2>
+          <table cellpadding="8" cellspacing="0" border="0" style="border-collapse: collapse; width: 100%; max-width: 620px;">
+            <tr>
+              <td style="border-bottom: 1px solid #ddd;"><strong>Title</strong></td>
+              <td style="border-bottom: 1px solid #ddd;">${options.title}</td>
+            </tr>
+            <tr>
+              <td style="border-bottom: 1px solid #ddd;"><strong>Unit</strong></td>
+              <td style="border-bottom: 1px solid #ddd;">${options.unitNumber}</td>
+            </tr>
+            <tr>
+              <td style="border-bottom: 1px solid #ddd;"><strong>Owner</strong></td>
+              <td style="border-bottom: 1px solid #ddd;">${options.ownerName || "N/A"}</td>
+            </tr>
+            <tr>
+              <td style="border-bottom: 1px solid #ddd;"><strong>Email</strong></td>
+              <td style="border-bottom: 1px solid #ddd;">${options.ownerEmail || "N/A"}</td>
+            </tr>
+            <tr>
+              <td style="border-bottom: 1px solid #ddd;"><strong>Priority</strong></td>
+              <td style="border-bottom: 1px solid #ddd;">${options.priority || "medium"}</td>
+            </tr>
+            <tr>
+              <td style="border-bottom: 1px solid #ddd;"><strong>Description</strong></td>
+              <td style="border-bottom: 1px solid #ddd;">${options.description}</td>
+            </tr>
+          </table>
+        </body>
+      </html>
+    `,
+  });
+}
+
+export interface SendStaffAssignmentEmailOptions {
+  to: string;
+  staffName?: string;
+  workOrderTitle: string;
+  unitNumber?: string | null;
+  priority?: string | null;
+}
+
+export async function sendStaffAssignmentEmail(
+  options: SendStaffAssignmentEmailOptions
+): Promise<void> {
+  const staffName = options.staffName?.trim() || "Team Member";
+
+  await sendEmail({
+    to: options.to,
+    subject: `New Work Order Assignment - ${options.workOrderTitle}`,
+    textBody: [
+      `Hello ${staffName},`,
+      ``,
+      `You have been assigned a work order.`,
+      `Title: ${options.workOrderTitle}`,
+      `Unit: ${options.unitNumber || "N/A"}`,
+      `Priority: ${options.priority || "N/A"}`,
+      ``,
+    ].join("\n"),
+    htmlBody: `
+      <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+          <h2>New Work Order Assignment</h2>
+          <p>Hello ${staffName},</p>
+          <p>You have been assigned a work order.</p>
+          <table cellpadding="8" cellspacing="0" border="0" style="border-collapse: collapse; width: 100%; max-width: 620px;">
+            <tr>
+              <td style="border-bottom: 1px solid #ddd;"><strong>Title</strong></td>
+              <td style="border-bottom: 1px solid #ddd;">${options.workOrderTitle}</td>
+            </tr>
+            <tr>
+              <td style="border-bottom: 1px solid #ddd;"><strong>Unit</strong></td>
+              <td style="border-bottom: 1px solid #ddd;">${options.unitNumber || "N/A"}</td>
+            </tr>
+            <tr>
+              <td style="border-bottom: 1px solid #ddd;"><strong>Priority</strong></td>
+              <td style="border-bottom: 1px solid #ddd;">${options.priority || "N/A"}</td>
+            </tr>
+          </table>
+          
         </body>
       </html>
     `,

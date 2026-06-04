@@ -53,7 +53,7 @@ export async function checkAllowlist(email: string): Promise<AllowlistEntry | nu
       return {
         email: residentRes.data.email,
         role: "resident",
-        isActive: residentRes.data.approval_status !== false,
+        isActive: residentRes.data.approval_status === "approved",
       };
     }
 

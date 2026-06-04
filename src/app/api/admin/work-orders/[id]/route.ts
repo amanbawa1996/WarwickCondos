@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import { getSession } from "@/backend/auth";
+import { sendStaffAssignmentEmail } from "@/backend/postmark";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,16 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
     const body = await req.json();
 
+    const { data: existingWorkOrder, error: existingError } = await sb
+      .from("work_orders")
+      .select("id, assigned_staff_id, title, unit_number, priority")
+      .eq("id", id)
+      .single();
+
+    if (existingError || !existingWorkOrder) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
+
     const updates: any = { updated_at: new Date().toISOString() };
 
     if ("status" in body) updates.status = toDbStatus(body.status);
@@ -44,8 +55,40 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
     if ("paymentStatus" in body) updates.payment_status = body.paymentStatus ?? null;
 
-    const { error } = await sb.from("work_orders").update(updates).eq("id", id);
-    if (error) throw error;
+    const { error: updateError } = await sb.from("work_orders").update(updates).eq("id", id);
+    if (updateError) throw updateError;
+
+    const newAssignedStaffId = "assigned_staff_id" in body ? body.assigned_staff_id ?? null : undefined;
+
+    const assignmentChanged =
+      newAssignedStaffId !== undefined &&
+      newAssignedStaffId !== existingWorkOrder.assigned_staff_id &&
+      newAssignedStaffId !== null;
+
+    if (assignmentChanged) {
+      try {
+        const { data: staffMember, error: staffError } = await sb
+          .from("staff")
+          .select("id, full_name, email")
+          .eq("id", newAssignedStaffId)
+          .single();
+
+        if (!staffError && staffMember?.email) {
+          await sendStaffAssignmentEmail({
+            to: staffMember.email,
+            staffName: staffMember.full_name,
+            workOrderTitle: existingWorkOrder.title || "Work Order",
+            unitNumber: existingWorkOrder.unit_number,
+            priority: existingWorkOrder.priority,
+          });
+        }
+      } catch (emailError) {
+        console.error(
+          "[PATCH /api/admin/work-orders/:id] staff assignment email failed",
+          emailError
+        );
+      }
+    }
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (e) {

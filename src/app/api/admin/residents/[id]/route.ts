@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import { getSession } from "@/backend/auth";
+import { sendResidentApprovedEmail } from "@/backend/postmark";
 
 export const dynamic = "force-dynamic";
 
@@ -31,12 +32,42 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       return NextResponse.json({ error: "validation_error" }, { status: 400 });
     }
 
-    const { error } = await sb()
+    const supabase = sb();
+
+    const { data: existingResident, error: fetchError } = await supabase
+      .from("residents")
+      .select("id, first_name, email, approval_status")
+      .eq("id", id)
+      .single();
+
+    if (fetchError || !existingResident) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
+
+    const { error: updateError } = await supabase
       .from("residents")
       .update({ approval_status: approvalStatus })
       .eq("id", id);
 
-    if (error) throw error;
+    if (updateError) throw updateError;
+
+    if (
+      approvalStatus === "approved" &&
+      existingResident.email &&
+      existingResident.approval_status !== "approved"
+    ) {
+      try {
+        await sendResidentApprovedEmail({
+          to: existingResident.email,
+          firstName: existingResident.first_name,
+        });
+      } catch (emailError) {
+        console.error(
+          "[PATCH /api/admin/residents/:id] approval email failed",
+          emailError
+        );
+      }
+    }
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (e) {

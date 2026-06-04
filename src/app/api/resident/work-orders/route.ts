@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import { getSession } from "@/backend/auth"; // adjust path to your actual backend/auth.ts
+import { sendWorkOrderCreatedAdminAlertEmail } from "@/backend/postmark";
 
 type Body = {
   title: string;
@@ -148,7 +149,23 @@ export async function POST(req: Request) {
       .single();
 
     if (error) throw error;
-
+    
+    try {
+      await sendWorkOrderCreatedAdminAlertEmail({
+        title,
+        description,
+        unitNumber,
+        ownerName,
+        ownerEmail,
+        priority,
+      });
+    } catch (emailError) {
+      console.error(
+        "[POST /api/resident/work-orders] admin work order email failed",
+        emailError
+      );
+    }
+    
     return NextResponse.json({ workOrder: created }, { status: 201 });
   } catch (err) {
     console.error("[POST /api/resident/work-orders]", err);
