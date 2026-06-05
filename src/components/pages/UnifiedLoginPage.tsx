@@ -76,43 +76,54 @@ export default function UnifiedLoginPage() {
 
       const data = await res.json().catch(() => ({}));
 
-      if (data?.ok &&data?.status ==="otp_sent") {
+      if (data?.ok && data?.status === "otp_sent") {
         toast({
           title: "Verification Code Sent",
-          description: "If your email is registered, you will receive a 6-digit code shortly.",
+          description: "A 6-digit verification code has been sent to your email.",
         });
 
         setLoginEmail(email);
         setLoginStep("otp");
         return;
       }
-      
+
       if (data?.status === "not_found") {
         toast({
           title: "Email Address Not Found",
           description: "Please register first or use the correct email address.",
           variant: "destructive",
         });
-
         return;
       }
 
       if (data?.status === "pending_approval") {
         toast({
           title: "Approval Required",
-          description: "If you have already registered, please wait for administrator approval before logging in.",
+          description: "If you already registered, please wait for administrator approval before logging in.",
           variant: "destructive",
         });
-
         return;
       }
-      
-      
-    } catch (error) {
-      console.error("❌ Error requesting OTP:", error);
+
+      if (data?.status === "invalid_email") {
+        toast({
+          title: "Invalid Email",
+          description: "Please enter a valid email address.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       toast({
         title: "Unable to Send Code",
         description: "Please try again.",
+        variant: "destructive",
+      });
+    } catch (error) {
+      console.error("❌ Error requesting OTP:", error);
+      toast({
+        title: "Error",
+        description: "An error occurred. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -120,7 +131,7 @@ export default function UnifiedLoginPage() {
     }
   };
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
+    const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
