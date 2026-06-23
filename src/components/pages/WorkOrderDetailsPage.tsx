@@ -426,6 +426,8 @@ export default function WorkOrderDetailsPage() {
                   <Label className="font-paragraph text-sm text-secondary-foreground/60">Email</Label>
                   <p className="font-paragraph text-base text-secondary-foreground mt-1">{workOrder.ownerEmail}</p>
                 </div>
+                </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="font-paragraph text-sm text-secondary-foreground/60">Phone</Label>
                   <p className="font-paragraph text-base text-secondary-foreground mt-1">{workOrder.ownerPhone}</p>
