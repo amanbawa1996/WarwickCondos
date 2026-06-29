@@ -18,23 +18,14 @@ export interface SendEmailOptions {
   replyTo?: string;
 }
 
-export interface SendMagicLinkEmailOptions {
-  to: string;
-  token: string;
-}
-
-export interface SendOtpEmailOptions {
-  to: string;
-  otp: string;
-}
 
 
-function buildVerifyUrl(token: string) {
-  const base = APP_BASE_URL|| "http://localhost:3000";
-  const u = new URL("/api/auth/verify", base);
-  u.searchParams.set("token", token);
-  return u.toString();
-}
+// function buildVerifyUrl(token: string) {
+//   const base = APP_BASE_URL|| "http://localhost:3000";
+//   const u = new URL("/api/auth/verify", base);
+//   u.searchParams.set("token", token);
+//   return u.toString();
+// }
 
 /**
  * Send an email via Postmark

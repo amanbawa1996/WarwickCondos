@@ -1,8 +1,3 @@
-/**
- * Backend authentication logic (server-only)
- * - Magic link tokens stored in `magic_links`
- * - Sessions stored in `sessions` and sent to client via HttpOnly cookie (handled in API routes)
- */
 
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";

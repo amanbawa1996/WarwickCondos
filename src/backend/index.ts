@@ -12,4 +12,3 @@ export type { SendEmailOptions } from './postmark';
 export { checkAllowlist } from './allowlist';
 export type { AllowlistEntry } from './allowlist';
 
-// export { default as setupAuthServer } from './server';
