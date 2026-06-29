@@ -1,158 +1,69 @@
-"use client"
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { AlertCircle, LogIn } from "lucide-react";
 
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import { AlertCircle, LogIn, CheckCircle2 } from 'lucide-react';
-import { notificationService } from '@/utils/notificationService';
-
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 
 export default function UnifiedLoginPage() {
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
-  const router = useRouter();
-  const [loginStep, setLoginStep] = useState<"email" | "otp">("email");
-  const [loginEmail, setLoginEmail] = useState("");
-  const [otpCode, setOtpCode] = useState("");
 
-  const [registerData, setRegisterData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phoneNumber: '',
-    unitNumber: '',
+  const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"login" | "register">("login");
+  const [loginMode, setLoginMode] = useState<"login" | "forgot">("login");
+
+  const [loginData, setLoginData] = useState({
+    email: "",
+    password: "",
   });
 
-  // const handleRequestMagicLink = async (e: React.FormEvent) => {
-  //   e.preventDefault();
-  //   setIsLoading(true);
+  const [forgotEmail, setForgotEmail] = useState("");
 
-  //   try {
-  //     const email = loginEmail.trim().toLowerCase();
+  const [registerData, setRegisterData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phoneNumber: "",
+    unitNumber: "",
+    password: "",
+    confirmPassword: "",
+  });
 
-  //     await fetch("/api/auth/start", {
-  //       method: "POST",
-  //       headers: { "Content-Type": "application/json" },
-  //       body: JSON.stringify({ email }),
-  //     });
+  const fieldLabelClass ="font-paragraph text-base !text-secondary-foreground opacity-100";
 
-  //     toast({
-  //       title: 'Magic Link Sent',
-  //       description: 'If your email is registered, you will receive a magic link shortly.',
-  //     });
-      
-  //     setEmailSent(true);
-  //     setLoginEmail('');
-  //   } catch (error) {
-  //     console.error('❌ Error requesting magic link:', error);
-  //     toast({
-  //       title: 'Error',
-  //       description: 'An error occurred. Please try again.',
-  //       variant: 'destructive',
-  //     });
-  //     setEmailSent(true)
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // };
-
-  const handleRequestCode = async (e: React.FormEvent) => {
+  const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const email = loginEmail.trim().toLowerCase();
-
-      const res = await fetch("/api/auth/start", {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({
+          email: loginData.email.trim().toLowerCase(),
+          password: loginData.password,
+        }),
       });
 
       const data = await res.json().catch(() => ({}));
 
-      if (data?.ok && data?.status === "otp_sent") {
-        toast({
-          title: "Verification Code Sent",
-          description: "A 6-digit verification code has been sent to your email.",
-        });
-
-        setLoginEmail(email);
-        setLoginStep("otp");
-        return;
-      }
-
-      if (data?.status === "not_found") {
-        toast({
-          title: "Email Address Not Found",
-          description: "Please register first or use the correct email address.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (data?.status === "pending_approval") {
-        toast({
-          title: "Approval Required",
-          description: "If you already registered, please wait for administrator approval before logging in.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (data?.status === "invalid_email") {
-        toast({
-          title: "Invalid Email",
-          description: "Please enter a valid email address.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      toast({
-        title: "Unable to Send Code",
-        description: "Please try again.",
-        variant: "destructive",
-      });
-    } catch (error) {
-      console.error("❌ Error requesting OTP:", error);
-      toast({
-        title: "Error",
-        description: "An error occurred. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-    const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-
-    try {
-      const res = await fetch("/api/auth/verify-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: loginEmail.trim().toLowerCase(),
-          otp: otpCode.trim(),
-        }),
-      });
-
-      const data = await res.json();
-
       if (!res.ok || !data?.ok) {
+        const message =
+          data?.error === "pending_approval"
+            ? "Your registration is still pending administrator approval."
+            : data?.error === "account_inactive"
+              ? "This account is inactive."
+              : "Incorrect email address or password.";
+
         toast({
-          title: "Invalid Code",
-          description: "The code is invalid or expired. Please try again.",
+          title: "Unable to Sign In",
+          description: message,
           variant: "destructive",
         });
+
         return;
       }
 
@@ -163,10 +74,49 @@ export default function UnifiedLoginPage() {
 
       window.location.href = data.redirectTo || "/";
     } catch (error) {
-      console.error("❌ Error verifying OTP:", error);
+      console.error("[password login]", error);
+
       toast({
-        title: "Error",
+        title: "Login Error",
         description: "An error occurred. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: forgotEmail.trim().toLowerCase(),
+        }),
+      });
+
+      toast({
+        title: "Check Your Email",
+        description:
+          "If an active account matches that email address, a password reset link has been sent.",
+      });
+
+      setLoginMode("login");
+      setLoginData((current) => ({
+        ...current,
+        email: forgotEmail.trim().toLowerCase(),
+      }));
+      setForgotEmail("");
+    } catch (error) {
+      console.error("[forgot password]", error);
+
+      toast({
+        title: "Password Reset Error",
+        description: "Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -176,13 +126,34 @@ export default function UnifiedLoginPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (registerData.password !== registerData.confirmPassword) {
+      toast({
+        title: "Passwords Do Not Match",
+        description: "Please enter the same password in both fields.",
+        variant: "destructive",
+      });
+
+      return;
+    }
+
+    if (registerData.password.length < 8) {
+      toast({
+        title: "Password Too Short",
+        description: "Password must be at least 8 characters.",
+        variant: "destructive",
+      });
+
+      return;
+    }
+
     setIsLoading(true);
 
     try {
       const res = await fetch("/api/resident/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(registerData), // {firstName,lastName,email,phoneNumber}
+        body: JSON.stringify(registerData),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -191,20 +162,47 @@ export default function UnifiedLoginPage() {
         const msg =
           data?.error === "email_exists"
             ? "This email is already registered."
-            : "Registration failed. Please try again.";
-        toast({ title: "Registration Error", description: msg, variant: "destructive" });
+            : data?.error === "duplicate_record"
+              ? "A resident account with these details may already exist."
+              : data?.error === "weak_password"
+                ? "Password must be at least 8 characters."
+                : "Registration failed. Please try again.";
+
+        toast({
+          title: "Registration Error",
+          description: msg,
+          variant: "destructive",
+        });
+
         return;
       }
 
       toast({
         title: "Registration Submitted",
-        description: "Your account is pending approval. You’ll be able to login once approved.",
+        description:
+          "Your account is pending approval. You may sign in with your password after approval.",
       });
 
-      setRegisterData({ firstName: "", lastName: "", email: "", phoneNumber: "", unitNumber: "" });
+      setLoginData({
+        email: registerData.email.trim().toLowerCase(),
+        password: "",
+      });
+
+      setRegisterData({
+        firstName: "",
+        lastName: "",
+        email: "",
+        phoneNumber: "",
+        unitNumber: "",
+        password: "",
+        confirmPassword: "",
+      });
+
       setActiveTab("login");
-    } catch (err) {
-      console.error("Registration error:", err);
+      setLoginMode("login");
+    } catch (error) {
+      console.error("[registration]", error);
+
       toast({
         title: "Registration Error",
         description: "An error occurred during registration. Please try again.",
@@ -217,9 +215,7 @@ export default function UnifiedLoginPage() {
 
   return (
     <div className="min-h-screen bg-primary flex flex-col items-center justify-center px-6">
-      {/* Minimal Access Portal */}
       <div className="w-full max-w-md">
-        {/* Title */}
         <div className="text-center mb-12">
           <h1 className="font-heading text-6xl md:text-7xl text-white mb-2">
             Warwick Condo
@@ -227,84 +223,121 @@ export default function UnifiedLoginPage() {
           <div className="h-px w-16 bg-white/30 mx-auto" />
         </div>
 
-        {/* Login/Register Form Card */}
-        <div className="bg-secondary rounded-3xl p-8 lg:p-12">
-          {/* Header */}
+        <div className="bg-secondary text-secondary-foreground rounded-3xl p-8 lg:p-12">
           <div className="flex items-center justify-center mb-6">
             <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center">
               <LogIn size={32} className="text-secondary" />
             </div>
           </div>
+
           <h2 className="font-heading text-4xl text-secondary-foreground mb-2 text-center">
-            {activeTab === 'login' ? 'Access Portal' : 'Create Account'}
+            {activeTab === "register"
+              ? "Create Account"
+              : loginMode === "forgot"
+                ? "Reset Password"
+                : "Access Portal"}
           </h2>
+
           <p className="font-paragraph text-center text-secondary-foreground/70 mb-8">
-            {activeTab === 'login' 
-              ? loginStep === "email"
-                ? 'Enter your email to receive a verification code'
-                : 'Enter the 6-digit code sent to your email' 
-              : 'Register as a resident'}
+            {activeTab === "register"
+              ? "Register as a resident"
+              : loginMode === "forgot"
+                ? "Enter your account email address"
+                : "Sign in with your email address and password"}
           </p>
 
-          {/* Tabs */}
           <div className="flex gap-4 mb-8 border-b border-secondary-foreground/20">
             <button
+              type="button"
               onClick={() => {
-                setActiveTab('login');
-                setLoginStep("email");
-                setOtpCode("");
+                setActiveTab("login");
+                setLoginMode("login");
               }}
               className={`flex-1 py-3 font-paragraph text-base transition-colors ${
-                activeTab === 'login'
-                  ? 'text-secondary-foreground border-b-2 border-secondary-foreground'
-                  : 'text-secondary-foreground/60 hover:text-secondary-foreground'
+                activeTab === "login"
+                  ? "text-secondary-foreground border-b-2 border-secondary-foreground"
+                  : "text-secondary-foreground/60 hover:text-secondary-foreground"
               }`}
             >
               Login
             </button>
+
             <button
-              onClick={() => setActiveTab('register')}
+              type="button"
+              onClick={() => {
+                setActiveTab("register");
+                setLoginMode("login");
+              }}
               className={`flex-1 py-3 font-paragraph text-base transition-colors ${
-                activeTab === 'register'
-                  ? 'text-secondary-foreground border-b-2 border-secondary-foreground'
-                  : 'text-secondary-foreground/60 hover:text-secondary-foreground'
+                activeTab === "register"
+                  ? "text-secondary-foreground border-b-2 border-secondary-foreground"
+                  : "text-secondary-foreground/60 hover:text-secondary-foreground"
               }`}
             >
               Register
             </button>
           </div>
 
-          {/* Login Form */}
-          {activeTab === 'login' && loginStep === 'email' && (
-            <form onSubmit={handleRequestCode} className="space-y-6">
+          {activeTab === "login" && loginMode === "login" && (
+            <form onSubmit={handlePasswordLogin} className="space-y-6">
               <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex gap-3">
-                <AlertCircle size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
+                <AlertCircle
+                  size={20}
+                  className="text-blue-600 flex-shrink-0 mt-0.5"
+                />
                 <div className="font-paragraph text-sm text-blue-800">
                   <p className="font-semibold mb-1">Resident Login Instructions</p>
-                  <p>Residents must register first before requesting a verification code.</p>
-                  <p>If you have already registered, please wait for administrator approval before logging in.</p>
-                </div>
-              </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex gap-3">
-                <AlertCircle size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
-                <div className="font-paragraph text-sm text-blue-800">
-                  <p className="font-semibold mb-1">Email Code Login</p>
-                  <p>We'll send you a secure 6-digit verification code.</p>
+                  <p>Residents must register and be approved before signing in.</p>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="login-email" className="font-paragraph text-base text-secondary-foreground">
-                  Email Address
-                </Label>
+                <Label htmlFor="login-email" className={fieldLabelClass}>Email Address</Label>
                 <Input
                   id="login-email"
                   type="email"
                   required
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
+                  value={loginData.email}
+                  onChange={(e) =>
+                    setLoginData((current) => ({
+                      ...current,
+                      email: e.target.value,
+                    }))
+                  }
                   className="bg-secondary border-secondary-foreground/20 text-secondary-foreground"
                   placeholder="your@email.com"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="login-password" className={fieldLabelClass}>Password</Label>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgotEmail(loginData.email);
+                      setLoginMode("forgot");
+                    }}
+                    className="font-paragraph text-sm text-secondary-foreground hover:underline"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+
+                <Input
+                  id="login-password"
+                  type="password"
+                  required
+                  value={loginData.password}
+                  onChange={(e) =>
+                    setLoginData((current) => ({
+                      ...current,
+                      password: e.target.value,
+                    }))
+                  }
+                  className="bg-secondary border-secondary-foreground/20 text-secondary-foreground"
+                  placeholder="Enter your password"
                 />
               </div>
 
@@ -313,7 +346,7 @@ export default function UnifiedLoginPage() {
                 disabled={isLoading}
                 className="w-full bg-secondary-foreground text-secondary hover:bg-secondary-foreground/90 font-paragraph text-lg py-6"
               >
-                {isLoading ? 'Sending...' : 'Send Verification Code'}
+                {isLoading ? "Signing In..." : "Sign In"}
               </Button>
 
               <p className="text-center font-paragraph text-sm text-secondary-foreground/70">
@@ -329,134 +362,32 @@ export default function UnifiedLoginPage() {
             </form>
           )}
 
-          {activeTab === 'login' && loginStep === 'otp' && (
-            <form onSubmit={handleVerifyOtp} className="space-y-6">
-              <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex gap-3">
-                <CheckCircle2 size={20} className="text-green-600 flex-shrink-0 mt-0.5" />
-                <div className="font-paragraph text-sm text-green-800">
-                  <p className="font-semibold mb-1">Check Your Email</p>
-                  <p>Enter the 6-digit code sent to {loginEmail}.</p>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="otp-code" className="font-paragraph text-base text-secondary-foreground">
-                  Verification Code
-                </Label>
-                <Input
-                  id="otp-code"
-                  inputMode="numeric"
-                  maxLength={6}
-                  required
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  className="bg-secondary border-secondary-foreground/20 text-secondary-foreground tracking-[0.35em] text-center text-xl"
-                  placeholder="123456"
+          {activeTab === "login" && loginMode === "forgot" && (
+            <form onSubmit={handleForgotPassword} className="space-y-6">
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex gap-3">
+                <AlertCircle
+                  size={20}
+                  className="text-blue-600 flex-shrink-0 mt-0.5"
                 />
-              </div>
-
-              <Button
-                type="submit"
-                disabled={isLoading || otpCode.length !== 6}
-                className="w-full bg-secondary-foreground text-secondary hover:bg-secondary-foreground/90 font-paragraph text-lg py-6"
-              >
-                {isLoading ? 'Verifying...' : 'Verify Code'}
-              </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setLoginStep("email");
-                  setOtpCode("");
-                }}
-                className="w-full"
-              >
-                Use Another Email
-              </Button>
-            </form>
-          )}
-
-          {/* Register Form */}
-          {activeTab === 'register' && (
-            <form onSubmit={handleRegister} className="space-y-6">
-              <div className="bg-primary/20 border border-primary/30 rounded-2xl p-4 flex gap-3">
-                <AlertCircle size={20} className="text-secondary-foreground flex-shrink-0 mt-0.5" />
-                <p className="font-paragraph text-sm text-secondary-foreground/80">
-                  Register as a resident. Your account will be pending approval from an administrator.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="first-name" className="font-paragraph text-base text-secondary-foreground">
-                    First Name
-                  </Label>
-                  <Input
-                    id="first-name"
-                    required
-                    value={registerData.firstName}
-                    onChange={(e) => setRegisterData({ ...registerData, firstName: e.target.value })}
-                    className="bg-secondary border-secondary-foreground/20 text-secondary-foreground"
-                    placeholder="John"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="last-name" className="font-paragraph text-base text-secondary-foreground">
-                    Last Name
-                  </Label>
-                  <Input
-                    id="last-name"
-                    required
-                    value={registerData.lastName}
-                    onChange={(e) => setRegisterData({ ...registerData, lastName: e.target.value })}
-                    className="bg-secondary border-secondary-foreground/20 text-secondary-foreground"
-                    placeholder="Doe"
-                  />
+                <div className="font-paragraph text-sm text-blue-800">
+                  <p className="font-semibold mb-1">Password Reset</p>
+                  <p>
+                    We will email a one-time password reset link to your active
+                    account email address.
+                  </p>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="register-email" className="font-paragraph text-base text-secondary-foreground">
-                  Email Address
-                </Label>
+                <Label htmlFor="forgot-email" >Email Address</Label>
                 <Input
-                  id="register-email"
+                  id="forgot-email"
                   type="email"
                   required
-                  value={registerData.email}
-                  onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
                   className="bg-secondary border-secondary-foreground/20 text-secondary-foreground"
                   placeholder="your@email.com"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone" className="font-paragraph text-base text-secondary-foreground">
-                  Phone Number
-                </Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  required
-                  value={registerData.phoneNumber}
-                  onChange={(e) => setRegisterData({ ...registerData, phoneNumber: e.target.value })}
-                  className="bg-secondary border-secondary-foreground/20 text-secondary-foreground"
-                  placeholder="(555) 123-4567"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="unit-number" className="font-paragraph text-base text-secondary-foreground">
-                  Unit Number
-                </Label>
-                <Input
-                  id="unit-number"
-                  required
-                  value={(registerData as any).unitNumber || ""}
-                  onChange={(e) => setRegisterData({ ...(registerData as any), unitNumber: e.target.value })}
-                  className="bg-secondary border-secondary-foreground/20 text-secondary-foreground"
-                  placeholder="e.g., 12A"
                 />
               </div>
 
@@ -465,14 +396,176 @@ export default function UnifiedLoginPage() {
                 disabled={isLoading}
                 className="w-full bg-secondary-foreground text-secondary hover:bg-secondary-foreground/90 font-paragraph text-lg py-6"
               >
-                {isLoading ? 'Creating Account...' : 'Create Account'}
+                {isLoading ? "Sending..." : "Email Reset Link"}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setLoginMode("login")}
+                className="w-full"
+              >
+                Back to Login
+              </Button>
+            </form>
+          )}
+
+          {activeTab === "register" && (
+            <form onSubmit={handleRegister} className="space-y-6">
+              <div className="bg-primary/20 border border-primary/30 rounded-2xl p-4 flex gap-3">
+                <AlertCircle
+                  size={20}
+                  className="text-secondary-foreground flex-shrink-0 mt-0.5"
+                />
+                <p className="font-paragraph text-sm text-secondary-foreground/80">
+                  Register as a resident. Your account will remain pending until
+                  an administrator approves it.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="first-name" className={fieldLabelClass}>First Name</Label>
+                  <Input
+                    id="first-name"
+                    required
+                    value={registerData.firstName}
+                    onChange={(e) =>
+                      setRegisterData((current) => ({
+                        ...current,
+                        firstName: e.target.value,
+                      }))
+                    }
+                    className="bg-secondary border-secondary-foreground/20 text-secondary-foreground"
+                    placeholder="John"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="last-name" className={fieldLabelClass}>Last Name</Label>
+                  <Input
+                    id="last-name"
+                    required
+                    value={registerData.lastName}
+                    onChange={(e) =>
+                      setRegisterData((current) => ({
+                        ...current,
+                        lastName: e.target.value,
+                      }))
+                    }
+                    className="bg-secondary border-secondary-foreground/20 text-secondary-foreground"
+                    placeholder="Doe"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="register-email" className={fieldLabelClass}>Email Address</Label>
+                <Input
+                  id="register-email"
+                  type="email"
+                  required
+                  value={registerData.email}
+                  onChange={(e) =>
+                    setRegisterData((current) => ({
+                      ...current,
+                      email: e.target.value,
+                    }))
+                  }
+                  className="bg-secondary border-secondary-foreground/20 text-secondary-foreground"
+                  placeholder="your@email.com"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="phone" className={fieldLabelClass}>Phone Number</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  required
+                  value={registerData.phoneNumber}
+                  onChange={(e) =>
+                    setRegisterData((current) => ({
+                      ...current,
+                      phoneNumber: e.target.value,
+                    }))
+                  }
+                  className="bg-secondary border-secondary-foreground/20 text-secondary-foreground"
+                  placeholder="(555) 123-4567"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="unit-number" className={fieldLabelClass}>Unit Number</Label>
+                <Input
+                  id="unit-number"
+                  required
+                  value={registerData.unitNumber}
+                  onChange={(e) =>
+                    setRegisterData((current) => ({
+                      ...current,
+                      unitNumber: e.target.value,
+                    }))
+                  }
+                  className="bg-secondary border-secondary-foreground/20 text-secondary-foreground"
+                  placeholder="e.g., 12A"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="register-password" className={fieldLabelClass}>Create Password</Label>
+                <Input
+                  id="register-password"
+                  type="password"
+                  required
+                  minLength={8}
+                  value={registerData.password}
+                  onChange={(e) =>
+                    setRegisterData((current) => ({
+                      ...current,
+                      password: e.target.value,
+                    }))
+                  }
+                  className="bg-secondary border-secondary-foreground/20 text-secondary-foreground"
+                  placeholder="At least 8 characters"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password" className={fieldLabelClass}>Confirm Password</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  required
+                  minLength={8}
+                  value={registerData.confirmPassword}
+                  onChange={(e) =>
+                    setRegisterData((current) => ({
+                      ...current,
+                      confirmPassword: e.target.value,
+                    }))
+                  }
+                  className="bg-secondary border-secondary-foreground/20 text-secondary-foreground"
+                  placeholder="Re-enter your password"
+                />
+              </div>
+
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-secondary-foreground text-secondary hover:bg-secondary-foreground/90 font-paragraph text-lg py-6"
+              >
+                {isLoading ? "Creating Account..." : "Create Account"}
               </Button>
 
               <p className="text-center font-paragraph text-sm text-secondary-foreground/70">
-                Already have an account?{' '}
+                Already have an account?{" "}
                 <button
                   type="button"
-                  onClick={() => setActiveTab('login')}
+                  onClick={() => {
+                    setActiveTab("login");
+                    setLoginMode("login");
+                  }}
                   className="text-secondary-foreground hover:underline font-semibold"
                 >
                   Login here

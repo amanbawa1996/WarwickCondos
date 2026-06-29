@@ -112,59 +112,34 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
   }
 }
 
-export async function sendMagicLinkEmail(options: SendMagicLinkEmailOptions): Promise<void> {
-  const verifyUrl = buildVerifyUrl(options.token);
 
-  await sendEmail({
-    to: options.to,
-    subject: "Your Warwick Condos login link",
-    textBody: `Sign in (15 minutes): ${verifyUrl}`,
-    htmlBody: `
-      <html>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-          <h2>Magic Login Link</h2>
-          <p>Click to sign in (valid for 15 minutes).</p>
-          <p>
-            <a href="${verifyUrl}" style="display:inline-block;padding:10px 20px;background:#007bff;color:#fff;text-decoration:none;border-radius:4px;">
-              Login to Your Warwick Condos Account
-            </a>
-          </p>
-          <p>If you didn’t request this, you can ignore this email.</p>
-          <p>Or copy and paste this link in your browser:</p>
-          <p><code>${verifyUrl}</code></p>
-          <hr style="border:none;border-top:1px solid #ddd;margin:20px 0;" />
-          <p style="color:#999;font-size:12px;">Do not reply to this email. This is an automated message.</p>
-        </body>
-      </html>
-    `,
-  });
-}
+export async function sendPasswordResetEmail({
+    to,
+    resetUrl,
+  }: {
+    to: string;
+    resetUrl: string;
+  }) {
+    return sendEmail({
+      to,
+      subject: "Reset your Warwick Condo password",
+      textBody: `A request was made to reset your Warwick Condo password.
 
-/**
- * OTP sender
- */
-export async function sendOtpEmail(options: SendOtpEmailOptions): Promise<void> {
-  await sendEmail({
-    to: options.to,
-    subject: "Your Warwick verification code",
-    textBody: `Your Warwick Condos verification code is: ${options.otp}. This code expires in 10 minutes. If you did not request this code, you can ignore this email.`,
-    htmlBody: `
-      <html>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-          <h2>Warwick Condos Verification Code</h2>
-          <p>Your verification code is:</p>
-          <div style="font-size:32px;font-weight:bold;letter-spacing:6px;margin:16px 0;">
-            ${options.otp}
-          </div>
-          <p>This code expires in 10 minutes.</p>
-          <p>If you did not request this code, you can ignore this email.</p>
-          <hr style="border:none;border-top:1px solid #ddd;margin:20px 0;" />
-          <p style="color:#999;font-size:12px;">Do not reply to this email. This is an automated message.</p>
-        </body>
-      </html>
-    `,
-  });
-}
+  Use this link to create a new password:
+
+  ${resetUrl}
+
+  This link expires in one hour. If you did not request a password reset, you may ignore this email.`,
+      htmlBody: `
+        <p>A request was made to reset your Warwick Condo password.</p>
+        <p>
+          <a href="${resetUrl}">Create a new password</a>
+        </p>
+        <p>This link expires in one hour.</p>
+        <p>If you did not request a password reset, you may ignore this email.</p>
+      `,
+    });
+  }
 
 export interface SendPaymentReceiptEmailOptions {
   to: string;

@@ -10,12 +10,6 @@ import { checkAllowlist } from "./allowlist";
 
 export type AppRole = "admin" | "resident";
 
-export interface AuthToken {
-  email: string;
-  role: AppRole;
-  expiresAt: Date;
-}
-
 export interface SessionData {
   loggedIn: true;
   email: string;
@@ -40,15 +34,6 @@ export function generateToken(bytes = 32): string {
 }
 
 /**
- * Hash a raw token using MAGIC_LINK_SECRET (one-way; never store raw token)
- */
-export function hashToken(rawToken: string): string {
-  const secret = process.env.MAGIC_LINK_SECRET!;
-  if (!secret) throw new Error("MAGIC_LINK_SECRET not set");
-  return sha256(`${rawToken}:${secret}`);
-}
-
-/**
  * Hash a raw session token using SESSION_SECRET
  */
 export function hashSession(rawSession: string): string {
@@ -57,100 +42,55 @@ export function hashSession(rawSession: string): string {
   return sha256(`${rawSession}:${secret}`);
 }
 
-/**
- * Store a magic link token hash in DB
- */
-export async function storeToken(email: string, role: AppRole, tokenHash: string, expiresAt: Date): Promise<void> {
-  const supabase = supabaseServer();
-  const normalized = String(email || "").trim().toLowerCase();
 
-  await supabase.from("magic_links").insert({
-    email: normalized,
-    role,
-    token_hash: tokenHash,
-    expires_at: expiresAt.toISOString(),
-  });
-}
+function hashPasswordResetToken(rawToken: string): string {
+  const secret = process.env.PASSWORD_RESET_KEY!;
+  if (!secret) throw new Error("PASSWORD_RESET_KEY not set");
 
-/**
- * Verify a raw token: checks DB, expiry, one-time use, returns email+role.
- * Marks token as consumed.
- */
-export async function verifyToken(rawToken: string): Promise<AuthToken | null> {
-  const supabase = supabaseServer();
-  const tokenHash = hashToken(rawToken);
-
-  const { data } = await supabase
-    .from("magic_links")
-    .select("id,email,role,expires_at,consumed_at")
-    .eq("token_hash", tokenHash)
-    .order("created_at", { ascending: false })
-    .limit(1);
-
-  const row = data?.[0];
-  if (!row) return null;
-  if (row.consumed_at) return null;
-  if (new Date(row.expires_at).getTime() < Date.now()) return null;
-
-  // Consume it (one-time use)
-  await supabase.from("magic_links").update({ consumed_at: new Date().toISOString() }).eq("id", row.id);
-
-  return {
-    email: row.email,
-    role: row.role,
-    expiresAt: new Date(row.expires_at),
-  };
+  return sha256(`${rawToken}:${secret}`);
 }
 
 /**
  * Create a session for the user (must still be allowed: admin active / resident approved)
  * Returns the raw session token + session metadata (cookie setting happens in API route)
  */
-export async function createSession(email: string, role: AppRole): Promise<{ rawSession: string; session: SessionData } | null> {
+export async function createSession(
+  email: string,
+  role: AppRole
+): Promise<{ rawSession: string; session: SessionData } | null> {
   const supabase = supabaseServer();
   const normalized = String(email || "").trim().toLowerCase();
 
-  // Double-check allowlist/active state (source of truth)
   const allow = await checkAllowlist(normalized);
-  if (!allow || allow.role !== role || !allow.isActive) return null;
+  if (!allow || allow.role !== role || !allow.isActive) {
+    return null;
+  }
 
-  // Lookup user id
   const table = role === "admin" ? "admins" : "residents";
-  const { data: user } = await supabase.from(table).select("id,email").eq("email", normalized).maybeSingle();
+
+  const { data: user } = await supabase
+    .from(table)
+    .select("id, email")
+    .eq("email", normalized)
+    .maybeSingle();
+
   if (!user?.id) return null;
 
   const rawSession = generateToken(32);
   const sessionHash = hashSession(rawSession);
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-  const payload = {
+  const { error } = await supabase.from("sessions").insert({
     user_id: user.id,
     role,
     session_hash: sessionHash,
     expires_at: expiresAt.toISOString(),
-  };
+  });
 
-  const { data: inserted, error: insertError } = await supabase
-    .from("sessions")
-    .insert(payload)
-    .select("id, user_id, role, session_hash, expires_at, created_at")
-    .single();
-
-  if (insertError) {
-    console.error("[createSession] INSERT FAILED", {
-      payload,
-      insertError,
-      supabaseUrl: process.env.SUPABASE_URL,
-    });
+  if (error) {
+    console.error("[createSession] insert failed", error);
     return null;
   }
-
-  console.log("[createSession] INSERT OK", inserted);
-
-
-  console.log("[createSession] session created", { userId: user.id, role, expiresAt });
-
-
 
   return {
     rawSession,
@@ -164,30 +104,35 @@ export async function createSession(email: string, role: AppRole): Promise<{ raw
   };
 }
 
-/**
- * Get session info from raw session token (cookie value)
- */
-export async function getSession(rawSession: string): Promise<SessionData | null> {
+export async function getSession(
+  rawSession: string
+): Promise<SessionData | null> {
   if (!rawSession) return null;
-  const supabase = supabaseServer();
 
+  const supabase = supabaseServer();
   const sessionHash = hashSession(rawSession);
 
   const { data } = await supabase
     .from("sessions")
-    .select("user_id,role,expires_at,revoked_at")
+    .select("user_id, role, expires_at, revoked_at")
     .eq("session_hash", sessionHash)
     .order("created_at", { ascending: false })
     .limit(1);
 
   const row = data?.[0];
+
   if (!row) return null;
   if (row.revoked_at) return null;
   if (new Date(row.expires_at).getTime() < Date.now()) return null;
 
-  // Fetch email from the correct table
   const table = row.role === "admin" ? "admins" : "residents";
-  const { data: user } = await supabase.from(table).select("email").eq("id", row.user_id).maybeSingle();
+
+  const { data: user } = await supabase
+    .from(table)
+    .select("email")
+    .eq("id", row.user_id)
+    .maybeSingle();
+
   if (!user?.email) return null;
 
   return {
@@ -199,11 +144,9 @@ export async function getSession(rawSession: string): Promise<SessionData | null
   };
 }
 
-/**
- * Revoke session by raw token (cookie value)
- */
 export async function destroySession(rawSession: string): Promise<void> {
   if (!rawSession) return;
+
   const supabase = supabaseServer();
   const sessionHash = hashSession(rawSession);
 
@@ -213,87 +156,82 @@ export async function destroySession(rawSession: string): Promise<void> {
     .eq("session_hash", sessionHash);
 }
 
-export function generateOtpCode(): string {
-  return String(Math.floor(100000 + Math.random() * 900000));
-}
-
-export function hashOtp(email: string, otp: string): string {
-  const normalized = String(email || "").trim().toLowerCase();
-  return crypto
-    .createHash("sha256")
-    .update(`${normalized}:${otp}`)
-    .digest("hex");
-}
-
-export async function storeOtp(
-  email: string,
-  role: AppRole,
-  otpHash: string,
-  expiresAt: Date
-): Promise<void> {
+export async function createPasswordResetToken(
+  authUserId: string
+): Promise<string | null> {
   const supabase = supabaseServer();
 
-  await supabase.from("email_otps").insert({
-    email: email.trim().toLowerCase(),
-    role,
-    otp_hash: otpHash,
+  const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString();
+
+  const { data: recentToken } = await supabase
+    .from("password_reset_tokens")
+    .select("id")
+    .eq("auth_user_id", authUserId)
+    .gte("created_at", oneMinuteAgo)
+    .is("consumed_at", null)
+    .limit(1)
+    .maybeSingle();
+
+  if (recentToken) return null;
+
+  const now = new Date().toISOString();
+
+  await supabase
+    .from("password_reset_tokens")
+    .update({ consumed_at: now })
+    .eq("auth_user_id", authUserId)
+    .is("consumed_at", null);
+
+  const rawToken = generateToken(32);
+  const tokenHash = hashPasswordResetToken(rawToken);
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+  const { error } = await supabase.from("password_reset_tokens").insert({
+    auth_user_id: authUserId,
+    token_hash: tokenHash,
     expires_at: expiresAt.toISOString(),
   });
+
+  if (error) throw error;
+
+  return rawToken;
 }
 
-export async function verifyOtpCode(
-  email: string,
-  otp: string
-): Promise<{ email: string; role: AppRole } | null> {
+export async function consumePasswordResetToken(
+  rawToken: string
+): Promise<{ authUserId: string } | null> {
   const supabase = supabaseServer();
-  const normalized = String(email || "").trim().toLowerCase();
-  const otpHash = hashOtp(normalized, otp);
+  const tokenHash = hashPasswordResetToken(rawToken);
 
-  const { data, error } = await supabase
-    .from("email_otps")
-    .select("id,email,role,otp_hash,expires_at,consumed_at,created_at")
-    .eq("email", normalized)
-    .order("created_at", { ascending: false })
-    .limit(10);
+  const { data: tokenRow } = await supabase
+    .from("password_reset_tokens")
+    .select("id, auth_user_id, expires_at, consumed_at")
+    .eq("token_hash", tokenHash)
+    .maybeSingle();
 
-  if (error || !data?.length) return null;
+  if (!tokenRow) return null;
+  if (tokenRow.consumed_at) return null;
+  if (new Date(tokenRow.expires_at).getTime() < Date.now()) return null;
 
-  const now = Date.now();
-
-  const match = data.find((row) => {
-    if (row.consumed_at) return false;
-    if (new Date(row.expires_at).getTime() < now) return false;
-    return row.otp_hash === otpHash;
-  });
-
-  if (!match) return null;
-
-  // atomic consume attempt
-  const { data: consumedRows, error: consumeError } = await supabase
-    .from("email_otps")
+  const { data: consumedRow, error } = await supabase
+    .from("password_reset_tokens")
     .update({ consumed_at: new Date().toISOString() })
-    .eq("id", match.id)
+    .eq("id", tokenRow.id)
     .is("consumed_at", null)
-    .select("id");
+    .select("auth_user_id")
+    .maybeSingle();
 
-  if (consumeError || !consumedRows?.length) {
-    return null;
-  }
+  if (error || !consumedRow) return null;
 
   return {
-    email: match.email,
-    role: match.role,
+    authUserId: consumedRow.auth_user_id,
   };
 }
 
-/**
- * Optional maintenance: clear expired tokens/sessions (safe to call occasionally)
- */
 export async function cleanupExpired(): Promise<void> {
   const supabase = supabaseServer();
   const nowIso = new Date().toISOString();
 
-  await supabase.from("magic_links").delete().lt("expires_at", nowIso);
-  await supabase.from("email_otps").delete().lt("expires_at", nowIso);
+  await supabase.from("password_reset_tokens").delete().lt("expires_at", nowIso);
   await supabase.from("sessions").delete().lt("expires_at", nowIso);
 }
