@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
 
@@ -186,7 +186,7 @@ export default function ResetPasswordPage() {
                 />
                 Show passwords
             </label>
-            
+
             <Button
               type="submit"
               disabled={isLoading || !token}
@@ -198,5 +198,21 @@ export default function ResetPasswordPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-primary flex items-center justify-center px-6">
+          <div className="w-full max-w-md bg-secondary rounded-3xl p-8 text-center text-secondary-foreground">
+            Loading password reset page...
+          </div>
+        </div>
+      }
+    >
+      <ResetPasswordForm />
+    </Suspense>
   );
 }
