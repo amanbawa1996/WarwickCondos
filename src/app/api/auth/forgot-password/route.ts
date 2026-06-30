@@ -14,6 +14,10 @@ function sb() {
   );
 }
 
+function makeTemporaryPassword() {
+  return `Wk!9${generateToken(16)}`;
+}
+
 function genericResponse() {
   return NextResponse.json({
     ok: true,
@@ -87,7 +91,7 @@ async function getOrCreateAuthUserId(
   const { data: createdUser, error: createError } =
     await supabase.auth.admin.createUser({
       email: normalizedEmail,
-      password: generateToken(48),
+      password: makeTemporaryPassword(),
       email_confirm: true,
     });
 
