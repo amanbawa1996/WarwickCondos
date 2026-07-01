@@ -34,14 +34,31 @@ export async function PATCH(
     if ("phone_number" in body) updates.phone_number = body.phone_number ? String(body.phone_number).trim() : null;
     if ("employee_id" in body) updates.employee_id = body.employee_id ? String(body.employee_id).trim() : null;
 
-    // minimal required fields
-    if (!updates.full_name || !updates.email || !updates.role) {
-      // Only enforce if they were provided; easiest approach:
-      // If any of these keys are present but empty, reject.
-      if ("name" in body || "email" in body || "role" in body) {
-        return NextResponse.json({ error: "validation_error" }, { status: 400 });
-      }
+    if ("full_name" in body && !updates.full_name) {
+      return NextResponse.json({ error: "validation_error" }, { status: 400 });
     }
+
+    if ("email" in body && !updates.email) {
+      return NextResponse.json({ error: "validation_error" }, { status: 400 });
+    }
+
+    if ("role" in body && !updates.role) {
+      return NextResponse.json({ error: "validation_error" }, { status: 400 });
+    }
+
+    if ("phone_number" in body && !updates.phone_number) {
+      return NextResponse.json({ error: "validation_error" }, { status: 400 });
+    }
+
+    if ("employee_id" in body && !updates.employee_id) {
+      return NextResponse.json({ error: "validation_error" }, { status: 400 });
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: "validation_error" }, { status: 400 });
+    }
+
+
 
     const { error } = await sb.from("staff").update(updates).eq("id", id);
     if (error) throw error;
