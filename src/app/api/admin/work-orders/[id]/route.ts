@@ -31,7 +31,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
     const { data: existingWorkOrder, error: existingError } = await sb
       .from("work_orders")
-      .select("id, assigned_staff_id, title, unit_number, priority")
+      .select("id, assigned_staff_id, title, unit_number, priority, created_at")
       .eq("id", id)
       .single();
 
@@ -45,7 +45,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     if ("assigned_staff_id" in body) updates.assigned_staff_id = body.assigned_staff_id ?? null;
 
     if ("scheduledDate" in body) {
-      updates.scheduled_date = body.scheduledDate ? new Date(body.scheduledDate).toISOString() : null;
+      updates.scheduled_date = body.scheduledDate || null;
     }
 
     if ("estimatedCost" in body) updates.estimated_cost = body.estimatedCost ?? null;
