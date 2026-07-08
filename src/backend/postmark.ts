@@ -229,6 +229,95 @@ export async function sendPaymentReceiptEmail(
   });
 }
 
+export interface SendPaymentRequestEmailOptions {
+  to: string;
+  residentName?: string;
+  unitNumber?: string | null;
+  workOrderTitle: string;
+  actualCost?: number | null;
+  estimatedCost?: number | null;
+  workOrderUrl?: string;
+}
+
+export async function sendPaymentRequestEmail(
+  options: SendPaymentRequestEmailOptions
+): Promise<void> {
+  const residentDisplayName = options.residentName?.trim() || "Resident";
+
+  const actualCost =
+    typeof options.actualCost === "number" && options.actualCost > 0
+      ? options.actualCost
+      : null;
+
+  await sendEmail({
+    to: options.to,
+    subject: `Payment Request - Warwick Condos${
+      options.unitNumber ? ` - Unit ${options.unitNumber}` : ""
+    }`,
+    textBody: [
+      `Hello ${residentDisplayName},`,
+      ``,
+      `A payment request has been added for your Warwick Condos work order.`,
+      ``,
+      `Work Order: ${options.workOrderTitle}`,
+      `Unit: ${options.unitNumber || "N/A"}`,
+      actualCost !== null ? `Amount Requested: $${actualCost.toFixed(2)}` : null,
+      ``,
+      `Please log in to the Warwick Condos resident portal to review the payment request and select your payment method.`,
+      ``,
+      `Review Payment Request: ${options.workOrderUrl}`,
+      ``,
+      `Thank you,`,
+      `Warwick Condos`,
+    ]
+      .filter((line): line is string => line !== null)
+      .join("\n"),
+    htmlBody: `
+      <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+          <h2>Payment Request</h2>
+          <p>Hello ${residentDisplayName},</p>
+          <p>A payment request has been added for your Warwick Condos work order.</p>
+
+          <table cellpadding="8" cellspacing="0" border="0" style="border-collapse: collapse; width: 100%; max-width: 620px;">
+            <tr>
+              <td style="border-bottom: 1px solid #ddd;"><strong>Work Order</strong></td>
+              <td style="border-bottom: 1px solid #ddd;">${options.workOrderTitle}</td>
+            </tr>
+            <tr>
+              <td style="border-bottom: 1px solid #ddd;"><strong>Unit</strong></td>
+              <td style="border-bottom: 1px solid #ddd;">${options.unitNumber || "N/A"}</td>
+            </tr>
+            ${
+              actualCost !== null
+                ? `
+            <tr>
+              <td style="border-bottom: 1px solid #ddd;"><strong>Amount Requested</strong></td>
+              <td style="border-bottom: 1px solid #ddd;">$${actualCost.toFixed(2)}</td>
+            </tr>
+            `
+                : ""
+            }
+          </table>
+
+          <p style="margin-top: 24px;">
+            Please log in to the Warwick Condos resident portal to review the payment request and select your payment method.
+          </p>
+
+          <p>
+            <a href="${options.workOrderUrl}">Review Payment Request</a>
+          </p>
+
+          <p>Thank you,<br/>Warwick Condos</p>
+
+          <hr style="border:none;border-top:1px solid #ddd;margin:20px 0;" />
+          <p style="color:#999;font-size:12px;">Do not reply to this email. This is an automated message.</p>
+        </body>
+      </html>
+    `,
+  });
+}
+
 function getAdminNotificationRecipients(): string[] {
   return String(process.env.WARWICK_ADMIN_NOTIFY_EMAILS || "")
     .split(",")

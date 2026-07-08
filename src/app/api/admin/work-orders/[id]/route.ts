@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import { getSession } from "@/backend/auth";
-import { sendStaffAssignmentEmail } from "@/backend/postmark";
+import {sendStaffAssignmentEmail, sendPaymentRequestEmail} from "@/backend/postmark";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +31,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
     const { data: existingWorkOrder, error: existingError } = await sb
       .from("work_orders")
-      .select("id, assigned_staff_id, title, unit_number, priority, created_at")
+      .select(`id, assigned_staff_id, title, unit_number, priority, created_at, resident_id, actual_cost, estimated_cost, payment_status, payment_request_date`)
       .eq("id", id)
       .single();
 
@@ -57,6 +57,45 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
     const { error: updateError } = await sb.from("work_orders").update(updates).eq("id", id);
     if (updateError) throw updateError;
+
+    const paymentRequestTriggered =
+      typeof body.paymentRequestedDate === "string" &&
+      body.paymentRequestedDate.length > 0;
+
+    if (paymentRequestTriggered) {
+      try {
+        const { data: resident, error: residentError } = await sb
+          .from("residents")
+          .select("id, email, first_name, last_name, unit_number")
+          .eq("id", existingWorkOrder.resident_id)
+          .single();
+
+        if (!residentError && resident?.email) {
+          const residentName = [resident.first_name, resident.last_name]
+            .filter(Boolean)
+            .join(" ");
+
+          const appBaseUrl =
+            process.env.APP_BASE_URL || "http://localhost:3000";
+
+          const workOrderUrl = `${appBaseUrl}/work-order/${existingWorkOrder.id}`;
+
+          await sendPaymentRequestEmail({
+            to: resident.email,
+            residentName,
+            unitNumber: resident.unit_number ?? existingWorkOrder.unit_number,
+            workOrderTitle: existingWorkOrder.title || "Work Order",
+            actualCost: Number(existingWorkOrder.actual_cost ?? 0),
+            workOrderUrl,
+          });
+        }
+      } catch (emailError) {
+        console.error(
+          "[PATCH /api/admin/work-orders/:id] payment request email failed",
+          emailError
+        );
+      }
+    }
 
     const newAssignedStaffId = "assigned_staff_id" in body ? body.assigned_staff_id ?? null : undefined;
 
