@@ -100,7 +100,7 @@ export default function WorkOrderDetailsPage() {
   };
 
   const handleSave = async () => {
-    if (!workOrder) return;
+    if (!workOrder || !id) return;
 
     setIsSaving(true);
     try {
@@ -123,7 +123,7 @@ export default function WorkOrderDetailsPage() {
         // paymentStatus: "unpaid",
       };
 
-      const res = await fetch(`/api/admin/work-orders/${workOrder._id}`, {
+      const res = await fetch(`/api/admin/work-orders/${id}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -208,7 +208,7 @@ export default function WorkOrderDetailsPage() {
       const paymentAmount =
         editData.actualCost > 0 ? editData.actualCost : cost;
 
-      const res = await fetch(`/api/admin/work-orders/${workOrder._id}`, {
+      const res = await fetch(`/api/admin/work-orders/${id}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -353,7 +353,7 @@ export default function WorkOrderDetailsPage() {
                     >
                       Edit Details
                     </Button>
-                    {workOrder.actualCost && workOrder.actualCost > 0 && !workOrder.paymentRequestedDate && (
+                    {workOrder.actualCost && workOrder.actualCost > 0 && workOrder.paymentStatus !== "paid" && (
                       <Button
                         onClick={handleSendPaymentRequest}
                         disabled={isSendingPaymentRequest}

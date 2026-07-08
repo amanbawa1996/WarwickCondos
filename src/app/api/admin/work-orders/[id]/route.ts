@@ -31,7 +31,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
     const { data: existingWorkOrder, error: existingError } = await sb
       .from("work_orders")
-      .select(`id, assigned_staff_id, title, unit_number, priority, created_at, resident_id, actual_cost, estimated_cost, payment_status, payment_request_date`)
+      .select(`id, assigned_staff_id, title, unit_number, priority, created_at, resident_id, actual_cost, estimated_cost, payment_status, payment_requested_date`)
       .eq("id", id)
       .single();
 
