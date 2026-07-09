@@ -9,9 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { WorkOrder } from "@/types/workorder";
+import { StaffMembers } from "@/entities";
 
 export default function ReportsPage() {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+  const [staffMembers, setStaffMembers] = useState<StaffMembers[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [filters, setFilters] = useState({
@@ -26,6 +28,7 @@ export default function ReportsPage() {
 
   useEffect(() => {
     void loadWorkOrders();
+    void loadStaffMembers();
   }, []);
 
   async function loadWorkOrders() {
@@ -42,6 +45,22 @@ export default function ReportsPage() {
       setWorkOrders([]);
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function loadStaffMembers() {
+    try {
+      const res = await fetch("/api/staff", {
+        credentials: "include",
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to load staff");
+
+      setStaffMembers(data.items || []);
+    } catch (e) {
+      console.error(e);
+      setStaffMembers([]);
     }
   }
 
@@ -246,17 +265,53 @@ export default function ReportsPage() {
     paymentStatus: o.paymentStatus || "unpaid",
   }));
 
-  const assignedStaffOptions = useMemo(() => {
-    const ids = Array.from(
-      new Set(
-        workOrders
-          .map((o) => o.assigned_staff_id)
-          .filter((id): id is string => Boolean(id))
-      )
-    );
+  const staffNameById = useMemo(() => {
+    const map = new Map<string, string>();
 
-    return ids.sort();
-  }, [workOrders]);
+    for (const staff of staffMembers) {
+      map.set(staff._id, staff.full_name || staff._id);
+    }
+
+    return map;
+  }, [staffMembers]);
+
+  const assignedStaffOptions = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        totalCount: number;
+        activeCount: number;
+      }
+    >();
+
+    for (const order of workOrders) {
+      const staffId = order.assigned_staff_id;
+      if (!staffId) continue;
+
+      const existing =
+        map.get(staffId) ||
+        {
+          id: staffId,
+          name: staffNameById.get(staffId) || staffId,
+          totalCount: 0,
+          activeCount: 0,
+        };
+
+      existing.totalCount += 1;
+
+      if (order.status !== "completed" && order.status !== "cancelled") {
+        existing.activeCount += 1;
+      }
+
+      map.set(staffId, existing);
+    }
+
+    return Array.from(map.values()).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+  }, [workOrders, staffNameById]);
 
   return (
     <div className="min-h-screen bg-primary">
@@ -361,9 +416,9 @@ export default function ReportsPage() {
               <SelectContent>
                 <SelectItem value="all">All Assignments</SelectItem>
                 <SelectItem value="unassigned">Unassigned</SelectItem>
-                {assignedStaffOptions.map((id) => (
-                  <SelectItem key={id} value={id}>
-                    {id}
+                {assignedStaffOptions.map((staff) => (
+                  <SelectItem key={staff.id} value={staff.id}>
+                    {staff.name} ({staff.activeCount} active / {staff.totalCount} total)
                   </SelectItem>
                 ))}
               </SelectContent>
