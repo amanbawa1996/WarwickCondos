@@ -22,9 +22,11 @@ function round2(n: number) {
 }
 
 function calcProcessingFee(baseAmount: number) {
-  const percent = Number(process.env.STRIPE_FEE_PERCENT ?? "2.9");
+  const percent = Number(process.env.STRIPE_FEE_PERCENT ?? "2.9") / 100;
   const fixed = Number(process.env.STRIPE_FEE_FIXED ?? "0.30");
-  return round2((baseAmount * percent) / 100 + fixed);
+  
+  const totalToCharge = (baseAmount + fixed) / (1 - percent);
+  return round2(totalToCharge - baseAmount)
 }
 
 export async function POST(
