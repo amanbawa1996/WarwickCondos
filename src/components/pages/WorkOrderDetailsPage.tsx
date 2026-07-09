@@ -34,11 +34,18 @@ export default function WorkOrderDetailsPage() {
   const [isSendingPaymentRequest, setIsSendingPaymentRequest] = useState(false);
   const [isChargingCard, setIsChargingCard] = useState(false);
 
-  const actualCost = Number(workOrder?.actualCost ?? 0);
-  const processingFee = Number(workOrder?.processingFee ?? 0);
-  const totalChargeAmount =
-    Number(workOrder?.totalChargeAmount ?? 0) ||
-    Number((actualCost + processingFee).toFixed(2));
+ const paymentData = workOrder as any;
+
+  const initialDeposit = Number(workOrder?.estimatedCost ?? 0);
+  const finalCost = Number(workOrder?.actualCost ?? 0);
+
+  const amountPaidBase = Number(paymentData?.amountPaidBase ?? 0);
+  const balanceDue = Number(paymentData?.balanceDue ?? 0);
+  const nextProcessingFee = Number(paymentData?.nextProcessingFee ?? 0);
+  const nextChargeAmount = Number(paymentData?.nextChargeAmount ?? 0);
+  const totalPaidWithFees = Number(paymentData?.totalPaidWithFees ?? workOrder?.totalChargeAmount ?? 0);
+
+  const actualCost = finalCost;
 
   const [editData, setEditData] = useState({
     status: 'pending' as WorkOrder['status'],
@@ -509,7 +516,7 @@ export default function WorkOrderDetailsPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="estimatedCost" className="font-paragraph text-sm text-secondary-foreground/60">
-                        Estimated Cost
+                        Initial Deposit
                       </Label>
                       <Input
                         id="estimatedCost"
@@ -523,7 +530,7 @@ export default function WorkOrderDetailsPage() {
 
                     <div className="space-y-2">
                       <Label htmlFor="actualCost" className="font-paragraph text-sm text-secondary-foreground/60">
-                        Actual Cost
+                        Final Cost
                       </Label>
                       <Input
                         id="actualCost"
@@ -561,7 +568,7 @@ export default function WorkOrderDetailsPage() {
                     <div>
                       <Label className="font-paragraph text-sm text-secondary-foreground/60 flex items-center gap-2">
                         <DollarSign size={16} />
-                        Estimated Cost
+                        Initial Deposit
                       </Label>
                       <p className="font-paragraph text-base text-secondary-foreground mt-1">
                         {workOrder.estimatedCost ? `$${workOrder.estimatedCost.toFixed(2)}` : 'Not estimated'}
@@ -571,7 +578,7 @@ export default function WorkOrderDetailsPage() {
                     <div>
                       <Label className="font-paragraph text-sm text-secondary-foreground/60 flex items-center gap-2">
                         <DollarSign size={16} />
-                        Actual Cost
+                        Final Cost
                       </Label>
                       <p className="font-paragraph text-base text-secondary-foreground mt-1">
                         {workOrder.actualCost ? `$${workOrder.actualCost.toFixed(2)}` : 'Not finalized'}
@@ -593,7 +600,7 @@ export default function WorkOrderDetailsPage() {
           </div>
 
           {/* Payment Section */}
-          {workOrder.actualCost && workOrder.actualCost > 0 && (
+          {(initialDeposit > 0 || finalCost > 0) && (
             <div className="mt-8 pt-8 border-t border-secondary-foreground/20">
               <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
                 <div className="flex-1">
@@ -602,30 +609,75 @@ export default function WorkOrderDetailsPage() {
                   </h3>
 
                   <div className="mt-3 space-y-2">
+                    {initialDeposit > 0 && (
+                      <div className="flex justify-between items-center max-w-md">
+                        <span className="font-paragraph text-secondary-foreground/70">
+                          Initial Deposit
+                        </span>
+                        <span className="font-paragraph text-secondary-foreground">
+                          ${initialDeposit.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+
+                    {finalCost > 0 && (
+                      <div className="flex justify-between items-center max-w-md">
+                        <span className="font-paragraph text-secondary-foreground/70">
+                          Final Cost
+                        </span>
+                        <span className="font-paragraph text-secondary-foreground">
+                          ${finalCost.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+
                     <div className="flex justify-between items-center max-w-md">
-                      <span className="font-paragraph text-secondary-foreground/70">Actual Cost</span>
+                      <span className="font-paragraph text-secondary-foreground/70">
+                        Amount Already Paid
+                      </span>
                       <span className="font-paragraph text-secondary-foreground">
-                        ${actualCost.toFixed(2)}
+                        ${amountPaidBase.toFixed(2)}
                       </span>
                     </div>
 
                     <div className="flex justify-between items-center max-w-md">
                       <span className="font-paragraph text-secondary-foreground/70">
-                        Credit Card Processing Fee
+                        Balance Due
                       </span>
                       <span className="font-paragraph text-secondary-foreground">
-                        ${processingFee.toFixed(2)}
+                        ${balanceDue.toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center max-w-md">
+                      <span className="font-paragraph text-secondary-foreground/70">
+                        Credit Card Processing Fee on Next Charge
+                      </span>
+                      <span className="font-paragraph text-secondary-foreground">
+                        ${nextProcessingFee.toFixed(2)}
                       </span>
                     </div>
 
                     <div className="flex justify-between items-center max-w-md pt-2 border-t border-secondary-foreground/20">
-                      <span className="font-heading text-secondary-foreground">Total Charge</span>
+                      <span className="font-heading text-secondary-foreground">
+                        Total Next Charge
+                      </span>
                       <span className="font-heading text-2xl text-secondary-foreground">
-                        ${totalChargeAmount.toFixed(2)}
+                        ${nextChargeAmount.toFixed(2)}
                       </span>
                     </div>
-                  </div>
 
+                    {totalPaidWithFees > 0 && (
+                      <div className="flex justify-between items-center max-w-md">
+                        <span className="font-paragraph text-secondary-foreground/70">
+                          Total Charged So Far, Including Fees
+                        </span>
+                        <span className="font-paragraph text-secondary-foreground">
+                          ${totalPaidWithFees.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                   <p className="font-paragraph text-sm text-secondary-foreground/60 mt-3">
                     A credit card processing fee is added to card payments.
                   </p>
@@ -661,12 +713,16 @@ export default function WorkOrderDetailsPage() {
                         onClick={handleChargeSavedCard}
                         disabled={
                           isChargingCard ||
-                          workOrder.paymentStatus === "paid" ||
+                          balanceDue <= 0 ||
                           !workOrder.selectedPaymentMethodId
                         }
                         className="bg-primary text-primary-foreground hover:bg-primary/90 font-paragraph"
                       >
-                        {isChargingCard ? "Charging..." : "Charge Selected Card"}
+                        {isChargingCard
+                          ? "Charging..."
+                          : balanceDue > 0
+                            ? "Charge Balance Due"
+                            : "No Balance Due"}
                       </Button>
                     </div>
                   )}

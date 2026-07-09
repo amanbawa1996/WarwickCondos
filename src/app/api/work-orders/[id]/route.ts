@@ -18,6 +18,16 @@ const sb = createClient(
   { auth: { persistSession: false } }
 );
 
+function round2(n: number) {
+  return Math.round(n * 100) / 100;
+}
+
+function calcProcessingFee(baseAmount: number) {
+  const percent = Number(process.env.STRIPE_FEE_PERCENT ?? "2.9");
+  const fixed = Number(process.env.STRIPE_FEE_FIXED ?? "0.30");
+  return round2((baseAmount * percent) / 100 + fixed);
+}
+
 function mapSelectedPaymentMethod(paymentMethod: Stripe.PaymentMethod | null) {
   if (!paymentMethod || paymentMethod.type !== "card" || !paymentMethod.card) {
     return null;
@@ -33,6 +43,35 @@ function mapSelectedPaymentMethod(paymentMethod: Stripe.PaymentMethod | null) {
 }
 
 function mapRow(row: any, selectedPaymentMethod: any = null) {
+  const estimatedCost = Number(row.estimated_cost ?? 0);
+  const actualCost = Number(row.actual_cost ?? 0);
+  const totalProcessingFeesPaid = Number(row.processing_fee ?? 0);
+  const totalPaidWithFees = Number(row.total_charge_amount ?? 0);
+
+  const amountPaidBase = round2(
+    Math.max(0, totalPaidWithFees - totalProcessingFeesPaid)
+  );
+
+  const targetBaseAmount = actualCost > 0 ? actualCost : estimatedCost;
+
+  const balanceDue = round2(
+    Math.max(0, targetBaseAmount - amountPaidBase)
+  );
+
+  const nextProcessingFee =
+    balanceDue > 0 ? calcProcessingFee(balanceDue) : 0;
+
+  const nextChargeAmount =
+    balanceDue > 0 ? round2(balanceDue + nextProcessingFee) : 0;
+
+  const computedPaymentStatus =
+    targetBaseAmount > 0
+      ? balanceDue <= 0
+        ? "paid"
+        : "unpaid"
+      : row.payment_status ?? "unpaid";
+
+
   return {
     _id: row.id,
     resident_id: row.resident_id,
@@ -49,11 +88,18 @@ function mapRow(row: any, selectedPaymentMethod: any = null) {
     completedDate: row.completed_date ?? undefined,
     estimatedCost: row.estimated_cost ?? undefined,
     actualCost: row.actual_cost ?? undefined,
-    paymentStatus: row.payment_status ?? "unpaid",
+    paymentStatus: computedPaymentStatus,
     paymentRequestedDate: row.payment_requested_date ?? undefined,
     paymentUrl: row.payment_url ?? undefined,
     processingFee: row.processing_fee ?? 0,
     totalChargeAmount: row.total_charge_amount ?? undefined,
+    targetBaseAmount,
+    amountPaidBase,
+    balanceDue,
+    nextProcessingFee,
+    nextChargeAmount,
+    totalProcessingFeesPaid,
+    totalPaidWithFees,
     selectedPaymentMethodId: row.selected_payment_method_id ?? null,
     selectedPaymentMethod,
     _createdAt: row.created_at,

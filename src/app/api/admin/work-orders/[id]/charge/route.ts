@@ -70,9 +70,6 @@ export async function POST(
       return NextResponse.json({ error: workOrderError }, { status: 404 });
     }
 
-    if (String(workOrder.payment_status || "").toLowerCase() === "paid") {
-      return NextResponse.json({ error: "already_paid" }, { status: 400 });
-    }
 
     if (!workOrder.selected_payment_method_id) {
       return NextResponse.json(
@@ -81,18 +78,44 @@ export async function POST(
       );
     }
 
-    const baseAmountDollars = Number(workOrder.actual_cost ?? 0);
+    const currentProcessingFeeDollars = Number(workOrder.processing_fee ?? 0);
+    const currentTotalChargedDollars = Number(workOrder.total_charge_amount ?? 0);
 
-    if (!baseAmountDollars || baseAmountDollars <= 0) {
+    const baseAmountAlreadyPaidDollars = round2(
+      Math.max(0, currentTotalChargedDollars - currentProcessingFeeDollars)
+    );
+
+    // actual_cost = final cost. If final cost is not set yet, fall back to estimated_cost = initial deposit.
+    const targetBaseAmountDollars =
+      Number(workOrder.actual_cost ?? 0) > 0
+        ? Number(workOrder.actual_cost ?? 0)
+        : Number(workOrder.estimated_cost ?? 0);
+
+    if (!targetBaseAmountDollars || targetBaseAmountDollars <= 0) {
       return NextResponse.json(
-        { error: "actual_cost_required" },
+        { error: "charge_amount_required" },
         { status: 400 }
       );
     }
 
-    const processingFeeDollars = calcProcessingFee(baseAmountDollars);
+    const balanceDueDollars = round2(
+      Math.max(0, targetBaseAmountDollars - baseAmountAlreadyPaidDollars)
+    );
+
+    if (!balanceDueDollars || balanceDueDollars <= 0) {
+      return NextResponse.json(
+        {
+          error: "nothing_to_charge",
+          targetBaseAmount: targetBaseAmountDollars,
+          baseAmountAlreadyPaid: baseAmountAlreadyPaidDollars,
+        },
+        { status: 400 }
+      );
+    }
+
+    const processingFeeDollars = calcProcessingFee(balanceDueDollars);
     const totalChargeAmountDollars = round2(
-      baseAmountDollars + processingFeeDollars
+      balanceDueDollars + processingFeeDollars
     );
 
     const amount = Math.round(totalChargeAmountDollars * 100);
@@ -141,26 +164,42 @@ export async function POST(
 
     const description = `Warwick Condos - ${workOrder.title ?? "Work Order"} - Unit ${resident.unit_number ?? ""}`.trim();
 
-    const intent = await stripe.paymentIntents.create({
-      amount,
-      currency: "usd",
-      customer: resident.stripe_customer_id,
-      payment_method: workOrder.selected_payment_method_id,
-      confirm: true,
-      off_session: true,
-      receipt_email: resident.email,
-      description,
-      metadata: {
-        work_order_id: workOrder.id,
-        resident_id: resident.id,
-        resident_email: resident.email,
-        owner_email: workOrder.owner_email ?? "",
-        unit_number: resident.unit_number ?? "",
-        base_actual_cost: baseAmountDollars.toFixed(2),
-        processing_fee: processingFeeDollars.toFixed(2),
-        total_charge_amount: totalChargeAmountDollars.toFixed(2),
+    const idempotencyKey = [
+      "work_order_charge",
+      workOrder.id,
+      targetBaseAmountDollars.toFixed(2),
+      baseAmountAlreadyPaidDollars.toFixed(2),
+      balanceDueDollars.toFixed(2),
+    ].join("_");
+
+
+    const intent = await stripe.paymentIntents.create(
+      {
+        amount,
+        currency: "usd",
+        customer: resident.stripe_customer_id,
+        payment_method: workOrder.selected_payment_method_id,
+        confirm: true,
+        off_session: true,
+        receipt_email: resident.email,
+        description,
+        metadata: {
+          work_order_id: workOrder.id,
+          resident_id: resident.id,
+          resident_email: resident.email,
+          owner_email: workOrder.owner_email ?? "",
+          unit_number: resident.unit_number ?? "",
+          target_base_amount: targetBaseAmountDollars.toFixed(2),
+          base_amount_already_paid: baseAmountAlreadyPaidDollars.toFixed(2),
+          balance_due: balanceDueDollars.toFixed(2),
+          processing_fee_for_this_charge: processingFeeDollars.toFixed(2),
+          total_charge_amount_for_this_charge: totalChargeAmountDollars.toFixed(2),
+        },
       },
-    });
+      {
+        idempotencyKey,
+      }
+    );
 
     if (intent.status !== "succeeded") {
       return NextResponse.json(
@@ -178,8 +217,8 @@ export async function POST(
     const { error: updateError } = await sb
       .from("work_orders")
       .update({
-        processing_fee: processingFeeDollars,
-        total_charge_amount: totalChargeAmountDollars,
+        processing_fee: round2(currentProcessingFeeDollars + processingFeeDollars),
+        total_charge_amount: round2(currentTotalChargedDollars + totalChargeAmountDollars),
         payment_status: "paid",
         stripe_payment_intent_id: intent.id,
         paid_at: now,
@@ -204,7 +243,7 @@ export async function POST(
         residentName: [resident.first_name, resident.last_name].filter(Boolean).join(" "),
         unitNumber: resident.unit_number ?? "",
         workOrderTitle: workOrder.title ?? "Work Order",
-        actualCost: baseAmountDollars,
+        actualCost: balanceDueDollars,
         processingFee: processingFeeDollars,
         totalChargeAmount: totalChargeAmountDollars,
         paymentDate: new Date(now).toLocaleString("en-US", {
@@ -230,7 +269,7 @@ export async function POST(
         ok: true,
         paymentIntentId: intent.id,
         paymentStatus: "paid",
-        actualCost: baseAmountDollars,
+        actualCost: balanceDueDollars,
         processingFee: processingFeeDollars,
         totalChargeAmount: totalChargeAmountDollars,
       },

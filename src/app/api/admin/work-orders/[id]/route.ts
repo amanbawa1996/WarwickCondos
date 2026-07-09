@@ -31,7 +31,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
     const { data: existingWorkOrder, error: existingError } = await sb
       .from("work_orders")
-      .select(`id, assigned_staff_id, title, unit_number, priority, created_at, resident_id, actual_cost, estimated_cost, payment_status, payment_requested_date`)
+      .select(`id, assigned_staff_id, title, unit_number, priority, created_at, resident_id, actual_cost, estimated_cost, payment_status, payment_requested_date, processing_fee, total_charge_amount`)
       .eq("id", id)
       .single();
 
@@ -54,6 +54,39 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     if ("paymentRequestedDate" in body) updates.payment_requested_date = body.paymentRequestedDate ?? null;
 
     if ("paymentStatus" in body) updates.payment_status = body.paymentStatus ?? null;
+
+    const costChanged = "estimatedCost" in body || "actualCost" in body;
+
+    if (costChanged && !("paymentStatus" in body)) {
+      const nextEstimatedCost =
+        "estimatedCost" in body
+          ? Number(body.estimatedCost ?? 0)
+          : Number(existingWorkOrder.estimated_cost ?? 0);
+
+      const nextActualCost =
+        "actualCost" in body
+          ? Number(body.actualCost ?? 0)
+          : Number(existingWorkOrder.actual_cost ?? 0);
+
+      const targetBaseAmount =
+        nextActualCost > 0 ? nextActualCost : nextEstimatedCost;
+
+      const totalProcessingFeesPaid = Number(existingWorkOrder.processing_fee ?? 0);
+      const totalPaidWithFees = Number(existingWorkOrder.total_charge_amount ?? 0);
+
+      const amountPaidBase = Math.max(
+        0,
+        Math.round((totalPaidWithFees - totalProcessingFeesPaid) * 100) / 100
+      );
+
+      const balanceDue = Math.max(
+        0,
+        Math.round((targetBaseAmount - amountPaidBase) * 100) / 100
+      );
+
+      updates.payment_status =
+        targetBaseAmount > 0 && balanceDue <= 0 ? "paid" : "unpaid";
+    }
 
     const { error: updateError } = await sb.from("work_orders").update(updates).eq("id", id);
     if (updateError) throw updateError;
