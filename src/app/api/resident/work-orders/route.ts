@@ -3,6 +3,12 @@ import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import { getSession } from "@/backend/auth"; // adjust path to your actual backend/auth.ts
 import { sendWorkOrderCreatedAdminAlertEmail } from "@/backend/postmark";
+import Stripe from "stripe";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2026-01-28.clover",
+});
+
 
 type Body = {
   title: string;
@@ -14,6 +20,9 @@ type Body = {
   ownerName?: string | null;
   ownerEmail?: string | null;
   ownerPhone?: string | null;
+
+  selectedPaymentMethodId?: string | null;
+  paymentAuthorizationAccepted?: boolean;
 };
 
 function supabaseServer() {
@@ -107,6 +116,17 @@ export async function POST(req: Request) {
     if (session.role !== "resident") return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
     const body = (await req.json()) as Body;
+
+    const selectedPaymentMethodId = typeof body.selectedPaymentMethodId === "string" ? body.selectedPaymentMethodId.trim() : "";
+
+    if (!selectedPaymentMethodId) {
+      return NextResponse.json({error: "payment_method_required"}, {status: 400})
+    }
+
+    if (body.paymentAuthorizationAccepted !== true) {
+      return NextResponse.json ({error: "payment_authorization_required"}, {status: 400})
+    }
+
     console.log("[resident/work-orders] raw body =", body);
     console.log("[resident/work-orders] unitNumber =", (body as any).unitNumber, "unit_number =", (body as any).unit_number);
     const title = (body.title || "").trim();
@@ -128,6 +148,66 @@ export async function POST(req: Request) {
 
     const sb = supabaseServer();
 
+    const { data: resident, error: residentError } = await sb
+      .from("residents")
+      .select("id, stripe_customer_id")
+      .eq("id", session.userId)
+      .single();
+
+    if (residentError || !resident) {
+      return NextResponse.json(
+        { error: "resident_not_found" },
+        { status: 404 }
+      );
+    }
+
+    if (!resident.stripe_customer_id) {
+      return NextResponse.json(
+        { error: "stripe_customer_not_found" },
+        { status: 400 }
+      );
+    }
+
+    let paymentMethod: Stripe.PaymentMethod;
+
+    try {
+      paymentMethod = await stripe.paymentMethods.retrieve(
+        selectedPaymentMethodId
+      );
+    } catch (error) {
+      console.error(
+        "[POST /api/resident/work-orders] payment method retrieval failed",
+        error
+      );
+
+      return NextResponse.json(
+        { error: "invalid_payment_method" },
+        { status: 400 }
+      );
+    }
+
+    if (
+      paymentMethod.type !== "card" ||
+      !paymentMethod.card
+    ) {
+      return NextResponse.json(
+        { error: "invalid_payment_method" },
+        { status: 400 }
+      );
+    }
+
+    const paymentMethodCustomerId =
+      typeof paymentMethod.customer === "string"
+        ? paymentMethod.customer
+        : paymentMethod.customer?.id ?? null;
+
+    if (paymentMethodCustomerId !== resident.stripe_customer_id) {
+      return NextResponse.json(
+        { error: "payment_method_not_owned_by_resident" },
+        { status: 403 }
+      );
+    }
+
     const { data: created, error } = await sb
       .from("work_orders")
       .insert({
@@ -144,6 +224,11 @@ export async function POST(req: Request) {
 
         status: "pending",
         payment_status: "unpaid",         // placeholder
+
+        selected_payment_method_id: selectedPaymentMethodId,
+        payment_authorization_accepted_at: new Date().toISOString(),
+        payment_authorization_text_version:
+          "work-order-card-authorization-v1",
       })
       .select("*")
       .single();

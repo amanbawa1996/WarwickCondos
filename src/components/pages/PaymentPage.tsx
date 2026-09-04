@@ -232,15 +232,14 @@ export default function PaymentPage() {
   }
 
 
-  async function handleCardSaved() {
+  async function handleCardSaved(paymentMethodId: string) {
     setClientSecret(null);
     setIsAddingCard(false);
+
     await loadSavedCards();
 
-    if (savedCards.length > 0) {
-      setSelectedCardId(savedCards[0].id);
-    }
-
+    await handleSelectSavedCard(paymentMethodId);
+    
     toast({
       title: "Card Saved",
       description: "Your payment method was saved successfully.",

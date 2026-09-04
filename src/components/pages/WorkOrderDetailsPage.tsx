@@ -2,16 +2,15 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useMember } from '@/integrations';
 import { WorkOrder } from '@/types/workorder';
-import { SavedCard } from "@/types/savedcard"
+
 import { StaffMembers } from '@/entities';
-import { notificationService } from "@/utils/notificationService";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Calendar, DollarSign, Send } from 'lucide-react';
+import { ArrowLeft, Calendar, DollarSign } from 'lucide-react';
 import AdminHeader from '@/components/layout/AdminHeader';
 import ResidentHeader from '@/components/layout/ResidentHeader';
 import Footer from '@/components/layout/Footer';
@@ -31,7 +30,7 @@ export default function WorkOrderDetailsPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSendingPaymentRequest, setIsSendingPaymentRequest] = useState(false);
+  
   const [isChargingCard, setIsChargingCard] = useState(false);
 
  const paymentData = workOrder as any;
@@ -197,68 +196,68 @@ export default function WorkOrderDetailsPage() {
     }
   };
 
-  const handleSendPaymentRequest = async () => {
-    if (!workOrder) return;
+  // const handleSendPaymentRequest = async () => {
+  //   if (!workOrder) return;
 
-    const cost = workOrder.actualCost || 0;
-    if (cost <= 0) {
-      toast({
-        title: "Error",
-        description: "Set an actual cost before sending a payment request.",
-        variant: "destructive",
-      });
-      return;
-    }
+  //   const cost = workOrder.actualCost || 0;
+  //   if (cost <= 0) {
+  //     toast({
+  //       title: "Error",
+  //       description: "Set an actual cost before sending a payment request.",
+  //       variant: "destructive",
+  //     });
+  //     return;
+  //   }
 
-    setIsSendingPaymentRequest(true);
-    try {
-      const paymentAmount =
-        editData.actualCost > 0 ? editData.actualCost : cost;
+  //   setIsSendingPaymentRequest(true);
+  //   try {
+  //     const paymentAmount =
+  //       editData.actualCost > 0 ? editData.actualCost : cost;
 
-      const res = await fetch(`/api/admin/work-orders/${id}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          paymentRequestedDate: new Date().toISOString(),
-          //paymentRequestAmount: paymentAmount,
-          paymentStatus: "unpaid",
-        }),
-      });
+  //     const res = await fetch(`/api/admin/work-orders/${id}`, {
+  //       method: "PATCH",
+  //       credentials: "include",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({
+  //         paymentRequestedDate: new Date().toISOString(),
+  //         //paymentRequestAmount: paymentAmount,
+  //         paymentStatus: "unpaid",
+  //       }),
+  //     });
 
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Payment request failed (${res.status}): ${text}`);
-      }
+  //     if (!res.ok) {
+  //       const text = await res.text();
+  //       throw new Error(`Payment request failed (${res.status}): ${text}`);
+  //     }
 
-      // After updating work order payment fields
+  //     // After updating work order payment fields
 
-      await notificationService.createAdminNotification({
-        notificationType: "PAYMENT_REQUEST",
-        residentId: workOrder.resident_id,
-        residentName: workOrder.ownerName,
-        residentEmail: workOrder.ownerEmail,
-        unitNumber: workOrder.unitNumber,
-        message: `Payment request for ${workOrder.title}: $${paymentAmount.toFixed(2)}`,
-      });
+  //     await notificationService.createAdminNotification({
+  //       notificationType: "PAYMENT_REQUEST",
+  //       residentId: workOrder.resident_id,
+  //       residentName: workOrder.ownerName,
+  //       residentEmail: workOrder.ownerEmail,
+  //       unitNumber: workOrder.unitNumber,
+  //       message: `Payment request for ${workOrder.title}: $${paymentAmount.toFixed(2)}`,
+  //     });
 
-      toast({
-        title: "Payment Request Sent",
-        description: `Requested $${paymentAmount.toFixed(2)} from resident.`,
-      });
+  //     toast({
+  //       title: "Payment Request Sent",
+  //       description: `Requested $${paymentAmount.toFixed(2)} from resident.`,
+  //     });
 
-      await loadWorkOrder();
-    } catch (e) {
-      console.error(e);
-      toast({
-        title: "Error",
-        description: e instanceof Error ? e.message : "Failed to send payment request.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSendingPaymentRequest(false);
-    }
-  };
+  //     await loadWorkOrder();
+  //   } catch (e) {
+  //     console.error(e);
+  //     toast({
+  //       title: "Error",
+  //       description: e instanceof Error ? e.message : "Failed to send payment request.",
+  //       variant: "destructive",
+  //     });
+  //   } finally {
+  //     setIsSendingPaymentRequest(false);
+  //   }
+  // };
 
   const getStatusColor = (status: WorkOrder['status']) => {
     const colors = {
@@ -352,45 +351,39 @@ export default function WorkOrderDetailsPage() {
 
             <div className="flex flex-col gap-3">
               <div className="flex gap-3 flex-wrap">
-                {!isEditing && role === 'admin' ? (
-                  <>
-                    <Button
-                      onClick={() => setIsEditing(true)}
-                      className="bg-secondary-foreground text-secondary hover:bg-secondary-foreground/90 font-paragraph"
-                    >
-                      Edit Details
-                    </Button>
-                    {workOrder.actualCost && workOrder.actualCost > 0 && workOrder.paymentStatus !== "paid" && (
-                      <Button
-                        onClick={handleSendPaymentRequest}
-                        disabled={isSendingPaymentRequest}
-                        className="bg-primary text-primary-foreground hover:bg-primary/90 font-paragraph flex items-center gap-2"
-                      >
-                        <Send size={18} />
-                        {isSendingPaymentRequest ? 'Sending...' : 'Send Payment Request'}
-                      </Button>
-                    )}
 
-                  </>
-                ) : isEditing ? (
+                {/* ADMIN ACTIONS */}
+                {isAdmin && !isEditing && (
+                  <Button
+                    onClick={() => setIsEditing(true)}
+                    className="bg-secondary-foreground text-secondary hover:bg-secondary-foreground/90 font-paragraph"
+                  >
+                    Edit Details
+                  </Button>
+                )}
+
+                {isAdmin && isEditing && (
                   <>
                     <Button
                       onClick={handleSave}
                       disabled={isSaving}
                       className="bg-secondary-foreground text-secondary hover:bg-secondary-foreground/90 font-paragraph"
                     >
-                      {isSaving ? 'Saving...' : 'Save Changes'}
+                      {isSaving ? "Saving..." : "Save Changes"}
                     </Button>
+
                     <Button
                       onClick={() => {
                         setIsEditing(false);
+
                         setEditData({
                           status: workOrder.status,
-                          assignedTo: workOrder.assigned_staff_id || '',
+                          assignedTo: workOrder.assigned_staff_id || "",
                           estimatedCost: workOrder.estimatedCost || 0,
                           actualCost: workOrder.actualCost || 0,
-                          
-                          scheduledDate: workOrder.scheduledDate ? format(new Date(workOrder.scheduledDate), 'yyyy-MM-dd') : '',
+                          scheduledDate: workOrder.scheduledDate
+                            ? format(new Date(workOrder.scheduledDate), "yyyy-MM-dd")
+                            : "",
                         });
                       }}
                       variant="outline"
@@ -399,7 +392,23 @@ export default function WorkOrderDetailsPage() {
                       Cancel
                     </Button>
                   </>
-                ) : null}
+                )}
+
+                {/* RESIDENT CARD MANAGEMENT */}
+                {!isAdmin && (
+                  <Button
+                    type="button"
+                    onClick={() =>
+                      navigate(`/payment?orderId=${workOrder._id}`)
+                    }
+                    className="bg-secondary-foreground text-secondary hover:bg-secondary-foreground/90 font-paragraph"
+                  >
+                    {workOrder.selectedPaymentMethodId
+                      ? "Change Card"
+                      : "Add Card"}
+                  </Button>
+                )}
+
               </div>
             </div>
           </div>
@@ -600,7 +609,7 @@ export default function WorkOrderDetailsPage() {
           </div>
 
           {/* Payment Section */}
-          {(initialDeposit > 0 || finalCost > 0) && (
+          {(initialDeposit > 0 || finalCost > 0 || Boolean(workOrder.selectedPaymentMethodId)) && (
             <div className="mt-8 pt-8 border-t border-secondary-foreground/20">
               <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
                 <div className="flex-1">
@@ -697,15 +706,14 @@ export default function WorkOrderDetailsPage() {
                     </p>
                   ) : (
                     <p className="font-paragraph text-base text-secondary-foreground/60 mt-1">
-                      Selected Card: None selected yet
+                      Selected Card: None
+                      {isAdmin
+                        ? " — resident must add a card before this work order can be charged."
+                        : " — add a card to authorize future charges for this work order."}
                     </p>
                   )}
 
-                  {workOrder.paymentRequestedDate && (
-                    <p className="font-paragraph text-sm text-secondary-foreground/60 mt-2">
-                      Payment Requested: {format(new Date(workOrder.paymentRequestedDate), "MMM dd, yyyy")}
-                    </p>
-                  )}
+                  
 
                   {isAdmin && (
                     <div className="mt-4">

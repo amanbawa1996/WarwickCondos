@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import {useState } from "react";
 import {
   CardElement,
   useElements,
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 
 type Props = {
   clientSecret: string;
-  onSaved: () => Promise<void> | void;
+  onSaved: (paymentMethodId: string) => Promise<void> | void;
   onCancel: () => void;
 };
 
@@ -25,8 +25,7 @@ export default function AddCardForm({
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function handleSaveCard() {
 
     if (!stripe || !elements) return;
 
@@ -59,7 +58,17 @@ export default function AddCardForm({
         return;
       }
 
-      await onSaved();
+      const paymentMethodId =
+        typeof setupIntent.payment_method === "string"
+          ? setupIntent.payment_method
+          : setupIntent.payment_method?.id;
+
+      if (!paymentMethodId) {
+        setErrorMessage("The card was saved, but its payment method could not be identified.");
+        return;
+      }
+      await onSaved(paymentMethodId);
+
     } catch (err) {
       console.error("confirmCardSetup error:", err);
       setErrorMessage("Failed to save card.");
@@ -69,7 +78,7 @@ export default function AddCardForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="space-y-4">
       <div className="rounded-2xl border border-secondary-foreground/20 p-4 bg-secondary">
         <CardElement
           options={{
@@ -97,7 +106,8 @@ export default function AddCardForm({
 
       <div className="flex gap-3">
         <Button
-          type="submit"
+          type="button"
+          onClick={handleSaveCard}
           disabled={!stripe || !elements || isSaving}
           className="flex-1 font-paragraph"
         >
@@ -114,6 +124,6 @@ export default function AddCardForm({
           Cancel
         </Button>
       </div>
-    </form>
+    </div>
   );
 }
