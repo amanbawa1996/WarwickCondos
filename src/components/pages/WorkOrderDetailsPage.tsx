@@ -14,6 +14,7 @@ import { ArrowLeft, Calendar, DollarSign } from 'lucide-react';
 import AdminHeader from '@/components/layout/AdminHeader';
 import ResidentHeader from '@/components/layout/ResidentHeader';
 import Footer from '@/components/layout/Footer';
+import WorkOrderInvoiceBuilder from "@/components/invoices/WorkOrderInvoiceBuilder";
 import { format } from 'date-fns';
 
 export default function WorkOrderDetailsPage() {
@@ -607,7 +608,15 @@ export default function WorkOrderDetailsPage() {
               )}
             </div>
           </div>
-
+          {/* Invoice / Pricing Breakdown */}
+          {isAdmin && (
+            <WorkOrderInvoiceBuilder
+              workOrderId={workOrder._id}
+              initialDeposit={initialDeposit}
+              finalCost={finalCost}
+              amountPaidBase={amountPaidBase}
+            />
+          )}
           {/* Payment Section */}
           {(initialDeposit > 0 || finalCost > 0 || Boolean(workOrder.selectedPaymentMethodId)) && (
             <div className="mt-8 pt-8 border-t border-secondary-foreground/20">

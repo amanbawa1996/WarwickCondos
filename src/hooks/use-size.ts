@@ -1,6 +1,6 @@
 import useResizeObserver from "@react-hook/resize-observer"
 import { useLayoutEffect, useState } from "react"
-import '@/components/ui/image.css'
+//import '@/components/ui/image.css'
 
 type Size = {
   width: number
