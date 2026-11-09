@@ -351,7 +351,7 @@ export async function POST(
     } = await sb
       .from("work_order_invoices")
       .select(
-        "id, revision_number"
+        "id, revision_number, stripe_invoice_id"
       )
       .eq("work_order_id", id)
       .eq(
@@ -372,6 +372,12 @@ export async function POST(
     let invoiceId: string;
 
     if (existingDraft) {
+        if (existingDraft.stripe_invoice_id) {
+            return NextResponse.json(
+                { error: "stripe_draft_already_created_editing_locked" },
+                { status: 409 }
+            );
+        }
       const {
         error: updateError,
       } = await sb

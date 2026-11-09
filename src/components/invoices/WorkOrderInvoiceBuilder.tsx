@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import styles from "./WorkOrderInvoiceBuilder.module.css";
 
 type InvoiceType =
   | "initial_deposit"
@@ -75,6 +76,8 @@ export default function WorkOrderInvoiceBuilder({
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(null);
+  const [isCreatingStripeDraft, setIsCreatingStripeDraft] = useState(false);
+  const [stripeInvoiceId, setStripeInvoiceId] = useState<string | null>(null);
 
   const subtotal = useMemo(() => {
     return items.reduce((sum, item) => {
@@ -129,6 +132,7 @@ export default function WorkOrderInvoiceBuilder({
 
       if (!data.item) {
         setDraftId(null);
+        setStripeInvoiceId(null);
         setNotes("");
 
         if (
@@ -152,6 +156,7 @@ export default function WorkOrderInvoiceBuilder({
       }
 
       setDraftId(data.item.id);
+      setStripeInvoiceId(data.item.stripe_invoice_id ?? null);
       setNotes(data.item.notes || "");
 
       const loadedItems = (data.items || []).map(
@@ -290,7 +295,7 @@ export default function WorkOrderInvoiceBuilder({
 
   if (isLoading) {
     return (
-      <div className="mt-8 pt-8 border-t border-secondary-foreground/20">
+      <div className="mt-8 pt-8 border-t border-secondary-foreground/20 text-secondary-foreground">
         <p className="font-paragraph text-secondary-foreground/70">
           Loading invoice...
         </p>
@@ -298,8 +303,52 @@ export default function WorkOrderInvoiceBuilder({
     );
   }
 
+  async function createStripeDraft() {
+    if (!draftId) return;
+
+    try {
+      setIsCreatingStripeDraft(true);
+
+      const res = await fetch(
+        `/api/admin/work-orders/${workOrderId}/invoices/stripe-draft`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ invoiceId: draftId }),
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to create Stripe draft");
+      }
+
+      setStripeInvoiceId(data.stripeInvoiceId);
+
+      toast({
+        title: "Stripe Draft Created",
+        description:
+          `Stripe invoice ${data.stripeInvoiceId} created. ` +
+          `Amount due: $${Number(data.amountDue).toFixed(2)}. ` +
+          "Nothing has been sent or charged.",
+      });
+    } catch (error) {
+      toast({
+        title: "Stripe Invoice Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Could not create Stripe draft.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingStripeDraft(false);
+    }
+  }
   return (
-    <div className="mt-8 pt-8 border-t border-secondary-foreground/20">
+    <div className={`${styles.builder} mt-8 pt-8 border-t border-secondary-foreground/20`}>
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
           <h3 className="font-heading text-2xl text-secondary-foreground">
@@ -331,20 +380,20 @@ export default function WorkOrderInvoiceBuilder({
             )
           }
         >
-          <SelectTrigger className="mt-2">
+          <SelectTrigger className="mt-2 bg-secondary text-secondary-foreground border-secondary-foreground/20">
             <SelectValue />
           </SelectTrigger>
 
-          <SelectContent>
-            <SelectItem value="initial_deposit">
+          <SelectContent className={styles.menu}>
+            <SelectItem value="initial_deposit" >
               Initial Deposit
             </SelectItem>
 
-            <SelectItem value="final_balance">
+            <SelectItem value="final_balance" className="bg-secondary text-secondary-foreground">
               Final Balance
             </SelectItem>
 
-            <SelectItem value="adjustment">
+            <SelectItem value="adjustment" className="bg-secondary text-secondary-foreground">
               Adjustment
             </SelectItem>
           </SelectContent>
@@ -364,7 +413,7 @@ export default function WorkOrderInvoiceBuilder({
             >
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                 <div className="lg:col-span-2">
-                  <Label>Category</Label>
+                  <Label className = "mt-2 bg-secondary text-secondary-foreground">Category</Label>
 
                   <Select
                     value={item.category}
@@ -375,24 +424,24 @@ export default function WorkOrderInvoiceBuilder({
                       })
                     }
                   >
-                    <SelectTrigger className="mt-2">
-                      <SelectValue />
+                    <SelectTrigger className="mt-2 bg-secondary text-secondary-foreground">
+                      <SelectValue className="bg-secondary text-secondary-foreground"/>
                     </SelectTrigger>
 
-                    <SelectContent>
-                      <SelectItem value="labor">
+                    <SelectContent className={styles.menu}>
+                      <SelectItem value="labor" className="bg-secondary text-secondary-foreground">
                         Labor
                       </SelectItem>
-                      <SelectItem value="material">
+                      <SelectItem value="material" className="bg-secondary text-secondary-foreground">
                         Material
                       </SelectItem>
-                      <SelectItem value="equipment">
+                      <SelectItem value="equipment" className="bg-secondary text-secondary-foreground">
                         Equipment
                       </SelectItem>
-                      <SelectItem value="service">
+                      <SelectItem value="service" className="bg-secondary text-secondary-foreground">
                         Service
                       </SelectItem>
-                      <SelectItem value="other">
+                      <SelectItem value="other" className="bg-secondary text-secondary-foreground">
                         Other
                       </SelectItem>
                     </SelectContent>
@@ -400,10 +449,10 @@ export default function WorkOrderInvoiceBuilder({
                 </div>
 
                 <div className="lg:col-span-4">
-                  <Label>Description</Label>
+                  <Label className="mt-2 bg-secondary text-secondary-foreground">Description</Label>
 
                   <Input
-                    className="mt-2"
+                    className="mt-2 bg-secondary text-secondary-foreground border-secondary-foreground/20 placeholder:text-secondary-foreground/40"
                     value={item.description}
                     onChange={(e) =>
                       updateItem(index, {
@@ -416,10 +465,10 @@ export default function WorkOrderInvoiceBuilder({
                 </div>
 
                 <div className="lg:col-span-2">
-                  <Label>Quantity</Label>
+                  <Label className="mt-2 bg-secondary text-secondary-foreground">Quantity</Label>
 
                   <Input
-                    className="mt-2"
+                    className="mt-2 bg-secondary text-secondary-foreground border-secondary-foreground/20 placeholder:text-secondary-foreground/40"
                     type="number"
                     min="0.01"
                     step="0.01"
@@ -434,10 +483,10 @@ export default function WorkOrderInvoiceBuilder({
                 </div>
 
                 <div className="lg:col-span-2">
-                  <Label>Unit Price</Label>
+                  <Label className = "mt-2 bg-secondary text-secondary-foreground">Unit Price</Label>
 
                   <Input
-                    className="mt-2"
+                    className="mt-2 bg-secondary text-secondary-foreground border-secondary-foreground/20 placeholder:text-secondary-foreground/40"
                     type="number"
                     min="0"
                     step="0.01"
@@ -452,7 +501,7 @@ export default function WorkOrderInvoiceBuilder({
                 </div>
 
                 <div className="lg:col-span-2">
-                  <Label>Line Total</Label>
+                  <Label className = "mt-2 bg-secondary text-secondary-foreground">Line Total</Label>
 
                   <div className="mt-2 h-10 flex items-center font-paragraph text-secondary-foreground">
                     ${lineTotal.toFixed(2)}
@@ -500,10 +549,10 @@ export default function WorkOrderInvoiceBuilder({
       </Button>
 
       <div className="mt-6">
-        <Label>Invoice Notes</Label>
+        <Label className="font-paragraph text-sm text-secondary-foreground">Invoice Notes</Label>
 
         <Textarea
-          className="mt-2"
+          className="mt-2 bg-secondary text-secondary-foreground border-secondary-foreground/20 placeholder:text-secondary-foreground/40"
           value={notes}
           onChange={(e) =>
             setNotes(e.target.value)
@@ -587,7 +636,7 @@ export default function WorkOrderInvoiceBuilder({
         <Button
           type="button"
           onClick={saveDraft}
-          disabled={isSaving}
+          disabled={isSaving || Boolean(stripeInvoiceId)}
           className="bg-secondary-foreground text-secondary hover:bg-secondary-foreground/90"
         >
           {isSaving
@@ -596,6 +645,25 @@ export default function WorkOrderInvoiceBuilder({
               ? "Update Draft"
               : "Save Draft"}
         </Button>
+
+        <Button
+          type="button"
+          variant="outline"
+          onClick={createStripeDraft}
+          className="font-paragraph border-2 border-secondary-foreground text-secondary-foreground"
+        >
+          {isCreatingStripeDraft
+            ? "Creating Stripe Draft..."
+            : stripeInvoiceId
+              ? "Stripe Draft Created"
+              : "Create Stripe Draft"}
+        </Button>
+
+        {stripeInvoiceId && (
+          <p className="w-full text-sm font-paragraph text-secondary-foreground">
+            Linked Stripe Invoice: {stripeInvoiceId}
+          </p>
+        )}
       </div>
     </div>
   );

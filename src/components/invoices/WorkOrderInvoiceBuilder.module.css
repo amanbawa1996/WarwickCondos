@@ -1,0 +1,92 @@
+
+.builder {
+  color: #111827 !important;
+}
+
+/* DARK, READABLE HEADINGS */
+.builder :global(h3),
+.builder :global(h4),
+.builder :global(.font-heading) {
+  color: #0b1220 !important;
+  font-weight: 700 !important;
+}
+
+/* LABELS: CATEGORY, DESCRIPTION, QUANTITY, ETC. */
+.builder :global(label) {
+  color: #111827 !important;
+  font-weight: 700 !important;
+  opacity: 1 !important;
+}
+
+/* TEXT INPUTS, NUMBERS, NOTES, SELECT TRIGGERS */
+.builder :global(input:not([type="checkbox"])),
+.builder :global(textarea),
+.builder :global(button[role="combobox"]) {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border: 2px solid #64748b !important;
+  border-radius: 7px !important;
+  opacity: 1 !important;
+  box-shadow: none !important;
+}
+
+/* PLACEHOLDERS */
+.builder :global(input::placeholder),
+.builder :global(textarea::placeholder) {
+  color: #64748b !important;
+  opacity: 1 !important;
+}
+
+/* SELECTED DROPDOWN VALUES AND ARROWS */
+.builder :global(button[role="combobox"] *) {
+  color: #111827 !important;
+  opacity: 1 !important;
+}
+
+/* SELECT TRIGGER FOCUS */
+.builder :global(button[role="combobox"]:focus),
+.builder :global(input:focus),
+.builder :global(textarea:focus) {
+  border-color: #111827 !important;
+  outline: 2px solid #cbd5e1 !important;
+  outline-offset: 1px;
+}
+
+/* CHECKBOXES */
+.builder :global(input[type="checkbox"]) {
+  accent-color: #111827;
+}
+
+/* OUTLINED BUTTONS */
+.builder :global(button:not([role="combobox"])) {
+  border-color: #64748b !important;
+}
+
+/* RADIX SELECT DROPDOWN: PORTAL CONTENT */
+.menu {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border: 2px solid #64748b !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.14) !important;
+  z-index: 9999 !important;
+}
+
+/* ALL DROPDOWN OPTIONS */
+.menu :global([role="option"]) {
+  color: #111827 !important;
+  background-color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+/* ALL INNER OPTION TEXT AND ICONS */
+.menu :global([role="option"] *) {
+  color: #111827 !important;
+}
+
+/* HOVER / KEYBOARD HIGHLIGHT */
+.menu :global([role="option"][data-highlighted]) {
+  background-color: #e2e8f0 !important;
+  color: #0b1220 !important;
+  outline: none !important;
+}
