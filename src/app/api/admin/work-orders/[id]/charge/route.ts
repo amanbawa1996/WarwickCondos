@@ -174,6 +174,26 @@ export async function POST(
       balanceDueDollars.toFixed(2),
     ].join("_");
 
+    const { data: existingInvoice, error: invoiceError } = await sb
+      .from("work_order_invoices")
+      .select("id")
+      .eq("work_order_id", id)
+      .in("status", ["open", "paid"])
+      .limit(1)
+      .maybeSingle();
+
+    if (invoiceError) throw invoiceError;
+
+    if (existingInvoice) {
+      return NextResponse.json(
+        {
+          error: "invoice_payment_flow_required",
+          message:
+            "This work order has an issued invoice. Do not use the direct card-charge route.",
+        },
+        { status: 409 }
+      );
+    }
 
     const intent = await stripe.paymentIntents.create(
       {

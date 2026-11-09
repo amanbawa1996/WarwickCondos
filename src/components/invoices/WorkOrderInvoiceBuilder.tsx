@@ -78,6 +78,8 @@ export default function WorkOrderInvoiceBuilder({
   const [draftId, setDraftId] = useState<string | null>(null);
   const [isCreatingStripeDraft, setIsCreatingStripeDraft] = useState(false);
   const [stripeInvoiceId, setStripeInvoiceId] = useState<string | null>(null);
+  const [isSendingInvoice, setIsSendingInvoice] = useState(false);
+  const [sentInvoiceUrl, setSentInvoiceUrl] = useState<string | null>(null);
 
   const subtotal = useMemo(() => {
     return items.reduce((sum, item) => {
@@ -347,6 +349,158 @@ export default function WorkOrderInvoiceBuilder({
       setIsCreatingStripeDraft(false);
     }
   }
+
+  
+async function createAndSendInvoice() {
+    if (isSendingInvoice) return;
+
+    const validItems = items.filter(
+      (item) =>
+        item.description.trim() &&
+        Number.isFinite(Number(item.quantity)) &&
+        Number(item.quantity) > 0 &&
+        Number.isFinite(Number(item.unitPrice)) &&
+        Number(item.unitPrice) >= 0
+    );
+
+    if (
+      validItems.length !== items.length ||
+      validItems.length === 0
+    ) {
+      toast({
+        title: "Invalid Invoice",
+        description: "Complete every invoice line item.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (
+      expectedAmount <= 0 ||
+      Math.round(subtotal * 100) !== Math.round(expectedAmount * 100)
+    ) {
+      toast({
+        title: "Invoice Total Mismatch",
+        description:
+          "The itemized subtotal must match the saved work-order cost.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (invoiceType === "adjustment" || estimatedBalance <= 0) {
+      toast({
+        title: "Invoice Cannot Be Sent",
+        description: "There is no valid balance to invoice.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsSendingInvoice(true);
+
+      let currentInvoiceId = draftId;
+
+      // 1. Save Warwick pricing internally.
+      // Reuse a linked Stripe draft instead of trying to modify it.
+      if (!stripeInvoiceId) {
+        const saveRes = await fetch(
+          `/api/admin/work-orders/${workOrderId}/invoices`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              invoiceType,
+              notes,
+              items: validItems,
+            }),
+          }
+        );
+
+        const saveData = await saveRes.json();
+
+        if (!saveRes.ok) {
+          throw new Error(saveData?.error || "Saving invoice failed");
+        }
+
+        currentInvoiceId = saveData.item.id;
+        setDraftId(currentInvoiceId);
+      }
+
+      if (!currentInvoiceId) {
+        throw new Error("Invoice record is missing");
+      }
+
+      // 2. Create or reuse the Stripe draft internally.
+      const stripeRes = await fetch(
+        `/api/admin/work-orders/${workOrderId}/invoices/stripe-draft`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            invoiceId: currentInvoiceId,
+          }),
+        }
+      );
+
+      const stripeData = await stripeRes.json();
+
+      if (!stripeRes.ok) {
+        throw new Error(
+          stripeData?.error || "Stripe invoice creation failed"
+        );
+      }
+
+      setStripeInvoiceId(stripeData.stripeInvoiceId);
+
+      // 3. Finalize and send the live Stripe invoice.
+      const sendRes = await fetch(
+        `/api/admin/work-orders/${workOrderId}/invoices/send`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            invoiceId: currentInvoiceId,
+          }),
+        }
+      );
+
+      const sendData = await sendRes.json();
+
+      if (!sendRes.ok) {
+        throw new Error(
+          sendData?.error || "Sending invoice failed"
+        );
+      }
+
+      setSentInvoiceUrl(sendData.hostedInvoiceUrl ?? null);
+
+      toast({
+        title: "Invoice Sent",
+        description: `Invoice ${sendData.invoiceNumber} was sent successfully.`,
+      });
+
+      await loadDraft();
+    } catch (error) {
+      console.error(error);
+
+      toast({
+        title: "Invoice Not Confirmed",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Invoice sending failed. Check Stripe before retrying.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingInvoice(false);
+    }
+  }
+
   return (
     <div className={`${styles.builder} mt-8 pt-8 border-t border-secondary-foreground/20`}>
       <div className="flex items-start justify-between gap-4 mb-6">
@@ -631,40 +785,32 @@ export default function WorkOrderInvoiceBuilder({
             </p>
           )}
       </div>
-
-      <div className="flex flex-wrap gap-3 mt-8">
+      
+      <div className="flex flex-wrap items-center gap-3 mt-8">
         <Button
           type="button"
-          onClick={saveDraft}
-          disabled={isSaving || Boolean(stripeInvoiceId)}
+          onClick={createAndSendInvoice}
+          disabled={isSendingInvoice || Boolean(sentInvoiceUrl)}
           className="bg-secondary-foreground text-secondary hover:bg-secondary-foreground/90"
         >
-          {isSaving
-            ? "Saving..."
-            : draftId
-              ? "Update Draft"
-              : "Save Draft"}
+          {isSendingInvoice
+            ? "Creating & Sending..."
+            : sentInvoiceUrl
+              ? "Invoice Sent"
+              : "Create & Send Invoice"}
         </Button>
 
-        <Button
-          type="button"
-          variant="outline"
-          onClick={createStripeDraft}
-          className="font-paragraph border-2 border-secondary-foreground text-secondary-foreground"
-        >
-          {isCreatingStripeDraft
-            ? "Creating Stripe Draft..."
-            : stripeInvoiceId
-              ? "Stripe Draft Created"
-              : "Create Stripe Draft"}
-        </Button>
-
-        {stripeInvoiceId && (
-          <p className="w-full text-sm font-paragraph text-secondary-foreground">
-            Linked Stripe Invoice: {stripeInvoiceId}
-          </p>
+        {sentInvoiceUrl && (
+          <a
+            href={sentInvoiceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-paragraph text-sm underline text-secondary-foreground"
+          >
+            View Invoice
+          </a>
         )}
-      </div>
+      </div>      
     </div>
   );
 }
